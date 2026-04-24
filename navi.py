@@ -77,6 +77,13 @@ except Exception as e:
     log.error(f"Tools import failed: {e}")
     TOOLS_AVAILABLE = False
 
+# ── SPEECH INPUT ─────────────────────────────────────────────
+try:
+    from speech_to_text import listen
+    VOICE_INPUT_AVAILABLE = True
+except Exception:
+    VOICE_INPUT_AVAILABLE = False
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -846,7 +853,7 @@ else:
 print(f"\n{CYAN}Navi: {greeting}{RESET}\n")
 speak(greeting)
 system_print(f"Memory: {fact_count} facts | {msg_count} messages | Boot: {boot_state}")
-print(f"{GREY}Commands: quit | weather | news | briefing | search [query] | refresh news | what do you know about me{RESET}")
+print(f"{GREY}Commands: quit | weather | news | briefing | search [query] | refresh news | what do you know about me | voice | keyboard{RESET}")
 print("-"*50)
 
 # ============================================================
@@ -856,10 +863,23 @@ conversation_history = []
 session_msg_count    = 0
 last_search_query    = ""
 classification       = {"tool": "none", "query": ""}
+voice_mode           = False
 
 while True:
     try:
-        user_input = input(f"\n{rafael_prompt()}").strip()
+        if voice_mode and VOICE_INPUT_AVAILABLE:
+            time.sleep(1.0)
+            face({"type": "mood", "value": "listening"})
+            system_print("Listening... speak now.")
+            heard = listen()
+            face({"type": "mood", "value": "thinking"})
+            if not heard:
+                system_print("Nothing heard.")
+                continue
+            user_input = heard.strip('.,!? ')
+            print(f"{WHITE}You (voice): {user_input}{RESET}")
+        else:
+            user_input = input(f"\n{rafael_prompt()}").strip()
     except KeyboardInterrupt:
         farewell = generate_farewell(build_context(live_data))
         print(f"\n{CYAN}Navi: {farewell}{RESET}")
@@ -868,6 +888,25 @@ while True:
         break
 
     if not user_input:
+        continue
+
+    # ---- VOICE MODE TOGGLES ----
+    if user_input.lower() == 'voice':
+        if VOICE_INPUT_AVAILABLE:
+            voice_mode = True
+            system_print("Voice mode ON. Say 'keyboard' to switch back.")
+        else:
+            system_print("Voice input not available.")
+        continue
+
+    _lower = user_input.lower()
+    if (voice_mode and (
+        _lower.startswith('keyboard') or
+        'stop voice mode' in _lower or
+        'switch to keyboard' in _lower
+    )) or _lower == 'keyboard':
+        voice_mode = False
+        system_print("Keyboard mode ON.")
         continue
 
     if user_input.lower() == 'quit':

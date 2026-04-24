@@ -1,7 +1,7 @@
 # NAVI PROJECT MASTER FILE
 
-Last updated: 2026-04-19  
-Source: long Claude project session + ChatGPT cleanup handoff
+Last updated: 2026-04-24  
+Source: long Claude project session + ChatGPT cleanup handoff + Claude Code session
 
 ---
 
@@ -18,7 +18,7 @@ The goal is for Navi to:
 - Remember conversations and facts permanently using SQLite
 - Use live tools: weather, news, Wikipedia, Tavily search
 - Control an animated HTML face on the Pi touchscreen via WebSocket
-- Accept voice input from a USB microphone once integrated
+- Accept voice input from a USB microphone ✓ working
 - Run as much as possible directly on the Pi without relying on the laptop
 
 This is not a new project. Do not start over. Do not rewrite files unless explicitly asked.
@@ -287,7 +287,7 @@ Rafael speaks
 
 ## 8. Current Working Features
 
-Verified or known working as of the old Claude session:
+Verified or known working as of 2026-04-24:
 
 - Claude brain in `navi.py`
 - Full Navi personality prompt
@@ -314,6 +314,15 @@ Verified or known working as of the old Claude session:
 - Audio/face desync was improved
 - `speak()` owns face sync internally
 - `face()` has `wait=True` option for important shutdown messages
+- USB microphone hardware tested and working (Amazon Basics USB, card 2)
+- `speech_to_text.py` created and tested — mic → Whisper → clean text
+- Continuous voice mode added to `navi.py`
+- `voice` command turns voice mode ON — listens every turn automatically
+- `keyboard` command turns voice mode OFF — returns to typed input
+- Whisper forced to English, fp16=False, temperature=0, no previous context
+- Garbage filtering rejects Cyrillic, empty, and repeated-nonsense transcripts
+- Navy/Neville/Navvy corrected to Navi in transcripts
+- Voice exit phrases handled before Claude sees them: "keyboard", "stop voice mode", "switch to keyboard"
 
 ---
 
@@ -352,18 +361,29 @@ Do not re-enable brain autostart casually. It needs a focused debugging session.
 
 Status:
 
-- Physically received
-- Not plugged in / tested / integrated yet
+- Physically received and plugged in
+- Hardware detection confirmed via `lsusb` and `arecord -l`
+- Recording and playback tested and working
+- `speech_to_text.py` created and integrated into `navi.py`
+- Continuous voice mode working as of 2026-04-24
 
-Do not assume voice input works.
+### 9.3 Schedule Context Too Frequent
 
-### 9.3 Text-before-audio Gap
+Navi mentions Rafael's shift schedule more often than feels natural.
+
+The `SCHEDULE_AWARENESS` section in `SYSTEM_PROMPT` says to reference it "only when genuinely relevant" but it still surfaces too often.
+
+Future fix: tighten the instruction or reduce the schedule detail in `get_time_context()`.
+
+Not urgent. Polish task.
+
+### 9.4 Text-before-audio Gap
 
 Text may print in terminal several seconds before audio starts because Piper synthesis takes time on the Pi.
 
 Known polish issue, not blocking.
 
-### 9.4 Bracketed Paste in tmux
+### 9.5 Bracketed Paste in tmux
 
 Pasting into tmux may show markers like:
 
@@ -379,7 +399,7 @@ in:
 
 ~/.tmux.conf
 
-### 9.5 Animation Slower on Pi
+### 9.6 Animation Slower on Pi
 
 HTML face may be less fluid on the Pi than on a laptop.
 
@@ -392,7 +412,7 @@ Possible causes:
 
 Not diagnosed yet.
 
-### 9.6 Navi Flies Off Screen
+### 9.7 Navi Flies Off Screen
 
 Animation bug: Navi sometimes drifts off edge and disappears.
 
@@ -400,7 +420,7 @@ Likely movement clamping bug in `navi_face_1.html`.
 
 Not investigated yet.
 
-### 9.7 Deprecated WebSocket API Warning
+### 9.8 Deprecated WebSocket API Warning
 
 `navi_server_example.py` may use a deprecated websockets API such as:
 
@@ -408,7 +428,7 @@ WebSocketServerProtocol is deprecated
 
 It works for now. Not urgent unless library update breaks it.
 
-### 9.8 Level 2 Embodiment Not Built
+### 9.9 Level 2 Embodiment Not Built
 
 Current state:
 
@@ -423,7 +443,7 @@ Future idea:
 
 This is a bigger change. Do not start casually.
 
-### 9.9 `normalise_for_speech()` Needs Testing
+### 9.10 `normalise_for_speech()` Needs Testing
 
 Function exists in `navi.py`.
 
@@ -813,67 +833,59 @@ Audio output hardware known from old chat:
 
 ---
 
-## 13. Microphone Plan
+## 13. Microphone — COMPLETE
 
-Status:
+Status as of 2026-04-24:
 
-- USB mic physically arrived
-- not installed
-- not tested
-- not integrated
+- USB mic plugged in and detected (card 2, device 0)
+- Recording and playback verified working
+- `speech_to_text.py` created at `/home/pi/navi/speech_to_text.py`
+- Continuous voice mode integrated into `navi.py`
 
 Microphone model:
 
 Amazon Basics Mini USB Condenser Microphone
 Cardioid pickup
 Plug-and-play USB
+Detected as: C-Media Electronics, Inc. Amazon USB Streaming Mic
+Card: 2, Device: 0
+arecord device string: plughw:2,0
 
-### 13.1 First Step — Hardware Detection
+### 13.1 speech_to_text.py Summary
 
-Do this before coding.
+File: `/home/pi/navi/speech_to_text.py`
 
-1. Plug USB mic into Raspberry Pi.
+Key behavior:
 
-2. Check USB detection:
+- Records from `plughw:2,0` for 7 seconds
+- Transcribes with Whisper base model
+- Forced to English, fp16=False, temperature=0
+- Garbage filter rejects: empty, Cyrillic, repeated-word nonsense
+- Corrects Navy/Neville/Navvy → Navi
+- Returns clean text or empty string on failure
 
-lsusb
+### 13.2 Voice Mode in navi.py
 
-3. Check recording devices:
+Commands:
 
-arecord -l
+- `voice` — turns voice mode ON, listens every turn automatically
+- `keyboard` — turns voice mode OFF, returns to typed input
+- Also exits on: "stop voice mode", "switch to keyboard"
 
-4. Make a test recording.
+Voice exit commands are intercepted BEFORE Claude sees them.
 
-Replace `X` with correct card number from `arecord -l`:
+Actual data flow now:
 
-arecord -D plughw:X,0 -f cd -t wav -d 5 ~/navi/mic_test.wav
-
-5. Play it back:
-
-aplay ~/navi/mic_test.wav
-
-6. Only after clear recording works, add speech-to-text.
-
-### 13.2 Speech-to-Text Plan
-
-Future design:
-
-- Whisper may already be installed in venv, but verify before using
-- keep microphone logic in a separate file if possible
-- possible file name:
-
-speech_to_text.py
-
-Preferred flow:
-
-microphone
-→ speech_to_text.py
-→ same user_input flow as typed input
-→ navi.py brain
-→ speak()
-→ face()
-
-Do not rewrite the whole brain for microphone support.
+Rafael speaks
+→ USB mic (plughw:2,0)
+→ arecord 7 seconds
+→ Whisper base model (English, temp=0)
+→ garbage filter
+→ Navi corrections
+→ same user_input pipeline as typed input
+→ Claude brain
+→ Piper TTS
+→ face animation
 
 ---
 
