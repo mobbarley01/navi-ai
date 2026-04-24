@@ -1,0 +1,234 @@
+"""
+Navi Face Control Server — reference implementation
+====================================================
+Minimal WebSocket server that Navi AI (running Claude Haiku) connects to
+and uses to control the face animation (navi_face.html in a browser).
+
+On the Pi 5:
+  1. Install deps:   pip install websockets --break-system-packages
+  2. Run this:       python3 navi_server_example.py
+  3. Open the face:  chromium-browser --kiosk file:///path/to/navi_face.html
+  4. The HTML auto-connects to ws://localhost:8765 and stays reconnected.
+
+Your Navi AI main loop imports this module (or adapts it) and calls
+send_command() whenever she wants to control the face.
+
+Command reference (JSON messages HTML accepts):
+-----------------------------------------------
+  {"type": "mood", "value": "happy"}
+      moods: idle | listening | speaking | thinking | happy | alert | angry
+
+  {"type": "goto", "x": 0.5, "y": 0.4}
+      x,y normalized 0-1 (0=left/top, 1=right/bottom)
+
+  {"type": "point_at", "target": "ice_giant"}
+      named: ice_giant | gas_giant | moon | orion | milky_way | center |
+             upper_left | upper_right | lower_left | lower_right
+      OR {"type":"point_at", "x":0.5, "y":0.3}
+
+  {"type": "behavior", "value": "zoomies"}
+      zoomies | stillness | glide | shimmer | orbit | perch
+      OR a base behavior: drift | patrol | dash | hover | spiral | cross | loop
+
+  {"type": "personality", "value": "watchful"}
+      exploring | resting | curious | playful | watchful
+
+  {"type": "speaking_start"}       — call at start of voice synthesis
+  {"type": "speaking_amplitude", "value": 0.7}  — per-frame, 0-1
+  {"type": "speaking_stop"}        — call at end of voice synthesis
+
+  {"type": "event", "value": "shooting_star"}
+      shooting_star | satellite | comet | ufo | supernova |
+      kilonova | meteor_shower | gamma_ray_burst | bright_star |
+      galaxy | cosmic_ray | gravity_lens | nebula_pulse
+
+  {"type": "flash", "color": [255, 220, 150], "duration": 800}
+  {"type": "look_at_navi"}          — return to home position
+  {"type": "state_query"}           — ask for state heartbeat immediately
+
+State heartbeat (HTML → Python, every 2s):
+  {"type": "state",
+   "mood": "idle",
+   "position": [0.5, 0.44],
+   "behavior": "drift",
+   "personality": "exploring",
+   "uptime_sec": 1234,
+   "ufo_active": false,
+   "super_rare": null,
+   "rare_event": null}
+"""
+
+import asyncio
+import json
+import logging
+from typing import Optional
+
+try:
+    import websockets
+    from websockets.server import WebSocketServerProtocol
+except ImportError:
+    raise SystemExit(
+        "Missing websockets. Install with: pip install websockets --break-system-packages"
+    )
+
+logging.basicConfig(
+    format="[%(asctime)s] %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+    level=logging.INFO,
+)
+log = logging.getLogger("navi_server")
+
+
+class NaviFaceController:
+    """Holds the active face WebSocket connection and sends commands."""
+
+    def __init__(self):
+        self.clients: set = set()
+        self.last_state: dict = {}
+
+    async def handle_client(self, ws: WebSocketServerProtocol):
+        """Called on each new client connection (face or brain)."""
+        self.clients.add(ws)
+        log.info("Client connected from %s (total: %d)", ws.remote_address, len(self.clients))
+        try:
+            async for raw in ws:
+                try:
+                    msg = json.loads(raw)
+                    if msg.get("type") == "state":
+                        self.last_state = msg
+                        log.debug("state: %s", msg)
+                    else:
+                        # Command from brain — broadcast to all face clients
+                        log.info("broadcast → %s", msg)
+                        await self.broadcast(msg, exclude=ws)
+                except json.JSONDecodeError:
+                    log.warning("Non-JSON from client: %s", raw[:120])
+        except websockets.ConnectionClosed:
+            pass
+        finally:
+            self.clients.discard(ws)
+            log.info("Client disconnected (total: %d)", len(self.clients))
+
+    async def broadcast(self, cmd: dict, exclude=None):
+        """Send a command to all connected clients except the sender."""
+        if not self.clients:
+            log.debug("(no clients, skipping) %s", cmd)
+            return
+        dead = []
+        for ws in self.clients:
+            if ws is exclude:
+                continue
+            try:
+                await ws.send(json.dumps(cmd))
+            except Exception as e:
+                log.warning("send to %s failed: %s", ws.remote_address, e)
+                dead.append(ws)
+        for ws in dead:
+            self.clients.discard(ws)
+
+    async def send(self, cmd: dict):
+        """Compatibility wrapper — broadcast to all clients."""
+        await self.broadcast(cmd)
+
+    # ── Convenience wrappers ──────────────────────────────────────
+    async def mood(self, value: str):
+        await self.send({"type": "mood", "value": value})
+
+    async def goto(self, x: float, y: float):
+        await self.send({"type": "goto", "x": x, "y": y})
+
+    async def point_at(self, target: str):
+        await self.send({"type": "point_at", "target": target})
+
+    async def behavior(self, value: str):
+        await self.send({"type": "behavior", "value": value})
+
+    async def personality(self, value: str):
+        await self.send({"type": "personality", "value": value})
+
+    async def speaking_start(self):
+        await self.send({"type": "speaking_start"})
+
+    async def speaking_stop(self):
+        await self.send({"type": "speaking_stop"})
+
+    async def speaking_amplitude(self, value: float):
+        await self.send({"type": "speaking_amplitude", "value": float(value)})
+
+    async def event(self, value: str):
+        await self.send({"type": "event", "value": value})
+
+    async def flash(self, color=(255, 220, 150), duration: int = 800):
+        await self.send({"type": "flash", "color": list(color), "duration": duration})
+
+    async def look_at_navi(self):
+        await self.send({"type": "look_at_navi"})
+
+
+async def demo_sequence(ctrl: NaviFaceController):
+    """Example routine — Navi goes through a full ritual on startup.
+    Replace this with your real AI loop integration."""
+    await asyncio.sleep(3)  # wait for face to connect
+    log.info("▶ starting demo sequence")
+
+    await ctrl.mood("happy")
+    await asyncio.sleep(2)
+
+    await ctrl.point_at("ice_giant")
+    await asyncio.sleep(2)
+
+    await ctrl.mood("thinking")
+    await ctrl.behavior("hover")
+    await asyncio.sleep(3)
+
+    await ctrl.speaking_start()
+    # Simulate voice amplitude changes (your TTS driver would send real values)
+    for amp in [0.2, 0.6, 0.4, 0.8, 0.5, 0.3, 0.7, 0.2]:
+        await ctrl.speaking_amplitude(amp)
+        await asyncio.sleep(0.25)
+    await ctrl.speaking_stop()
+
+    await ctrl.mood("idle")
+    await asyncio.sleep(2)
+
+    await ctrl.point_at("orion")
+    await ctrl.mood("listening")
+    await asyncio.sleep(3)
+
+    log.info("▶ demo: triggering shooting star")
+    await ctrl.event("shooting_star")
+    await asyncio.sleep(2)
+
+    log.info("▶ demo: zoomies!")
+    await ctrl.behavior("zoomies")
+    await asyncio.sleep(5)
+
+    log.info("▶ demo: triggering UFO encounter")
+    await ctrl.event("ufo")
+
+    log.info("▶ demo complete — server continues running")
+
+
+async def main():
+    ctrl = NaviFaceController()
+
+    async def handler(ws, *_):
+        await ctrl.handle_client(ws)
+
+    # Start the WS server
+    server = await websockets.serve(handler, "localhost", 8765)
+    log.info("Navi face server listening on ws://localhost:8765")
+    log.info("Open navi_face.html in a browser to connect")
+
+    # Demo sequence disabled — brain drives the face now
+    # asyncio.create_task(demo_sequence(ctrl))
+
+    # Keep the server running forever
+    await server.wait_closed()
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("Shutting down")

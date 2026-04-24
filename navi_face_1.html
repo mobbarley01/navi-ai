@@ -1,0 +1,2714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Navi</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#00000c;cursor:none;}
+canvas{display:block;position:fixed;top:0;left:0;}
+#bar{position:fixed;bottom:0;left:0;right:0;height:44px;background:rgba(1,1,12,0.97);border-top:1px solid rgba(77,168,255,0.1);display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-family:'SF Mono','Menlo','Consolas','DejaVu Sans Mono','Courier New',monospace;z-index:10;user-select:none;}
+#bl{display:flex;align-items:center;gap:12px;flex:0 0 auto;}
+#pd{width:9px;height:9px;border-radius:50%;background:#4da8ff;transition:background 0.5s,transform 0.1s;box-shadow:0 0 10px currentColor;}
+#st{color:#4da8ff;transition:color 0.5s;min-width:130px;font-size:14px;letter-spacing:0.14em;font-weight:700;text-shadow:0 0 10px currentColor;}
+#wv{display:flex;align-items:center;gap:2px;height:16px;opacity:0;transition:opacity 0.3s;}
+.wb{width:2px;background:#4da8ff;border-radius:1px;transition:background 0.5s;}
+#moon{flex:1;text-align:center;display:flex;justify-content:center;align-items:center;gap:12px;white-space:nowrap;}
+#moonsvg{width:22px;height:22px;filter:drop-shadow(0 0 8px rgba(180,220,255,0.55)) drop-shadow(0 0 16px rgba(140,195,255,0.3));animation:moonbreath 4.5s ease-in-out infinite;}
+@keyframes moonbreath{0%,100%{filter:drop-shadow(0 0 8px rgba(180,220,255,0.55)) drop-shadow(0 0 16px rgba(140,195,255,0.3));}50%{filter:drop-shadow(0 0 14px rgba(200,230,255,0.85)) drop-shadow(0 0 26px rgba(160,210,255,0.5));}}
+.mname{background:linear-gradient(90deg,rgba(220,232,255,0.98) 0%,rgba(180,210,255,0.92) 50%,rgba(230,240,255,0.98) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;font-size:13px;letter-spacing:0.18em;font-weight:700;animation:mshimmer 6s linear infinite;text-shadow:0 0 12px rgba(140,195,255,0.3);}
+@keyframes mshimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
+#clocks{flex:0 0 auto;display:flex;align-items:center;gap:14px;}
+.cg{display:flex;align-items:baseline;gap:6px;}
+.cl{color:rgba(255,190,100,0.95);font-size:11px;letter-spacing:0.10em;font-weight:700;}
+.cs{display:none;}
+#upt,#taru,#tbtm{color:rgba(240,248,255,1.0);font-size:15px;letter-spacing:0.04em;font-weight:700;text-shadow:0 0 10px rgba(150,200,255,0.35);font-variant-numeric:tabular-nums;}
+#tm{display:flex;align-items:baseline;gap:6px;letter-spacing:0;}
+#tday{color:rgba(255,190,100,0.95);font-size:11px;letter-spacing:0.10em;font-weight:700;}
+#tmhm{color:rgba(240,248,255,1.0);font-size:15px;letter-spacing:0.04em;font-weight:700;text-shadow:0 0 10px rgba(150,200,255,0.35);font-variant-numeric:tabular-nums;}
+#tmsec{color:rgba(240,248,255,0.92);font-size:11px;letter-spacing:0.04em;font-weight:700;margin-left:1px;font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="bar">
+  <div id="bl"><div id="pd"></div><span id="st">INITIALISING</span>
+    <div id="wv"><div class="wb" style="height:4px"></div><div class="wb" style="height:8px"></div><div class="wb" style="height:12px"></div><div class="wb" style="height:16px"></div><div class="wb" style="height:10px"></div><div class="wb" style="height:6px"></div><div class="wb" style="height:14px"></div><div class="wb" style="height:8px"></div></div>
+  </div>
+  <div id="moon">
+    <svg id="moonsvg" viewBox="-12 -12 24 24" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="mglow" cx="30%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="40%" stop-color="#e8f0ff"/>
+          <stop offset="85%" stop-color="#9ec4f0"/>
+          <stop offset="100%" stop-color="#6a8cb8"/>
+        </radialGradient>
+        <radialGradient id="mdark" cx="30%" cy="30%" r="80%">
+          <stop offset="0%" stop-color="#0a0e1e"/>
+          <stop offset="100%" stop-color="#020410"/>
+        </radialGradient>
+      </defs>
+      <circle cx="0" cy="0" r="10" fill="url(#mdark)"/>
+      <path id="mlit" d="" fill="url(#mglow)"/>
+    </svg>
+    <span class="mname" id="mname">NEW MOON</span>
+  </div>
+  <div id="clocks">
+    <span class="cg"><span class="cl">↑</span><span id="upt">00:00</span></span>
+    <span class="cg"><span class="cl">ARU</span><span id="taru">00:00</span></span>
+    <span class="cg"><span class="cl">BTM</span><span id="tbtm">00:00</span></span>
+    <span id="tm"><span id="tday">FRI</span><span id="tmhm">00:00</span><span id="tmsec">·00</span></span>
+  </div>
+</div>
+<script>
+(function(){
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const BAR=44;let W,H;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const safe=v=>Math.max(0.01,(!isFinite(v)||v<0)?0.01:v);
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
+
+const MOODS={idle:{r:70,g:158,b:255,st:'STANDBY',sp:1.0},listening:{r:0,g:220,b:190,st:'LISTENING',sp:1.3},speaking:{r:85,g:165,b:255,st:'SPEAKING',sp:1.7},thinking:{r:172,g:110,b:255,st:'COMPUTING',sp:0.6},happy:{r:255,g:205,b:50,st:'ONLINE',sp:2.0},alert:{r:255,g:120,b:30,st:'ALERT',sp:2.3},angry:{r:255,g:20,b:20,st:'WARNING',sp:2.8}};
+let mood='idle',t=0,flapT=0,cR=70,cG=158,cB=255;
+let naviPulse=0,curiousX=0,curiousY=0;
+let eventDriftX=0,eventDriftY=0; // Navi notices events
+let wake=[]; // dash shimmer trail
+let QUASAR_X=0,QUASAR_Y=0; // quasar galaxy position (set in buildBg)
+let galaxyDefs=[]; // deep-field galaxies, for rotating arm overlays
+
+// Planet data for live effects
+let plPR=0,p2PR=0;
+const PL1X=()=>W*.80, PL1Y=()=>H*.09;
+const PL2X=()=>W*.07, PL2Y=()=>H*.28;
+
+// ── MOVEMENT ───────────────────────────────────────────────
+let wPos={x:0,y:0},wTgt={x:0,y:0},velX=0,velY=0,prevWX=0,prevWY=0,tilt=0,tiltTgt=0,tiltY=0,tiltYTgt=0,speed=0;
+let beh='drift',bTimer=Date.now()+1500,bPath='circle',pathT=0,lSpd=0.007;
+// Personality state machine — real-time
+let pState='exploring',pTimer=Date.now()+rnd(40000,80000);
+let naviScale=1.0,naviScaleTgt=1.0;
+let twitchX=0,twitchY=0,twitchLife=0;
+let poiTarget=null,poiTimer=Date.now()+rnd(40000,80000);
+// Loop behavior
+let loopCX=0,loopCY=0,loopAngle=0;
+// Startle reflex
+let startleX=0,startleY=0,startleEnd=0;
+
+// ── NEW SYSTEMS ────────────────────────────────────────────
+// Cosmic current — shared slow-rotating wind vector (space + dust)
+// Head tilt — Navi rotates subtly toward interest (POI/UFO/event/shooter)
+let headTilt=0,headTiltTgt=0;
+// Wing blinks — rare micro-dim
+let wingBlinkEnd=0,wingBlinkNext=Date.now()+rnd(6000,12000);
+// Orientation response — tracking shooting stars/comet/UFO briefly
+let orientX=0,orientY=0,orientEnd=0;
+// POI habituation — rolling 8-min window
+let poiHistory=[]; // [{x,y,time}] — recent visits
+// Fatigue state — brief catch-breath after zoomies
+let fatigueEnd=0;
+
+// ── NEW CRITTER-INSPIRED BEHAVIORS ──────────────────────────
+// Shiver warmup — moth behavior: wings vibrate before flight after rest
+let shiverEnd=0;
+// Watchful / perch-and-ambush — dragonfly percher strategy
+let watchfulActive=false,watchfulStart=0,watchfulPerchX=0,watchfulPerchY=0,watchfulEnd=0;
+let ambushLaunchEnd=0; // brief ambush dart after being watchful
+// Swing-hover — hawk moth lateral oscillation when hovering at POI
+let swingPhase=0; // increments during hover, adds lateral sway
+// Sync-flash — firefly-like brightness synchronization with a star
+let syncFlashStart=0,syncFlashEnd=0,syncFlashStarIdx=-1;
+let syncFlashTimer=Date.now()+rnd(180000,360000); // 3-6 min between occurrences
+
+// Rare Navi behaviors (real-time timers)
+let zoomiesTimer=Date.now()+rnd(1200000,1800000);
+let zoomiesActive=false,zoomiesDash=0,zoomiesWindup=false,lastZoomDash=0;
+let stillnessTimer=Date.now()+rnd(1500000,2100000);
+let stillnessActive=false,stillnessStart=0;
+let glideTimer=Date.now()+rnd(600000,900000);
+let glideActive=false,glideStart=0;
+let shimmerTimer=Date.now()+rnd(900000,1200000);
+let shimmerLife=0;
+let orbitTimer=Date.now()+rnd(2700000,3600000);
+let orbitActive=false,orbitAngle=0,orbitStart=0;
+let auroraFlareTimer=Date.now()+rnd(1200000,1500000);
+let auroraFlareMult=1.0;
+// Derived visual multipliers
+let naviBright=1.0,flapMult=1.0;
+// AGN jet
+let agnTimer=Date.now()+rnd(1200000,1800000);
+let agnAge=0,agnAngle=rnd(0,Math.PI*2);
+
+// Territory — fully percentage based, correct on Pi 10" and desktop
+const mxR=()=>({x:W*.33,y:H*.26});
+
+// ── COSMIC CURRENT — shared slow wind direction ─────────────
+// Rotates full cycle every ~15 minutes, drives dust/nebula drift
+function cosmicCurrent(){
+  const phase=Date.now()*0.0000070; // 15 min rotation
+  return{x:Math.cos(phase),y:Math.sin(phase)*.6}; // flatter ellipse
+}
+
+// ── CIRCADIAN RHYTHM — day/night energy multiplier ──────────
+// Returns 0.85 (day calm) → 1.15 (night alert), using local hours
+// Cached — only recomputes every 30s since time changes slowly
+let _circCache=1.0,_circCacheTime=0;
+function circadian(){
+  const now=Date.now();
+  if(now-_circCacheTime<30000)return _circCache;
+  _circCacheTime=now;
+  const d=new Date();
+  const h=d.getHours()+d.getMinutes()/60;
+  // Night 22-06: 1.15, Day 10-18: 0.85, smooth transitions
+  let m;
+  if(h>=22||h<6)m=1.15;
+  else if(h>=10&&h<18)m=0.85;
+  else if(h>=6&&h<10)m=lerp(1.15,0.85,(h-6)/4); // dawn
+  else m=lerp(0.85,1.15,(h-18)/4); // dusk
+  _circCache=m;
+  return m;
+}
+
+// Points of interest — near planets, nebulae, dark areas (offsets from W/2,H*.44)
+function buildPOI(){
+  const m=mxR();
+  return[
+    {x:clamp(W*.29,-m.x,m.x), y:clamp(-H*.33,-m.y,m.y)}, // ice giant
+    {x:clamp(-W*.41,-m.x,m.x),y:clamp(-H*.14,-m.y,m.y)}, // gas giant
+    {x:clamp(-W*.38,-m.x,m.x),y:clamp( H*.27,-m.y,m.y)}, // teal nebula
+    {x:clamp( W*.19,-m.x,m.x),y:clamp(-H*.26,-m.y,m.y)}, // blue nebula
+    {x:clamp(-W*.06,-m.x,m.x),y:clamp( H*.09,-m.y,m.y)}, // dark center
+    {x:clamp( W*.25,-m.x,m.x),y:clamp( H*.17,-m.y,m.y)}, // lower right
+  ];
+}
+
+function nextPState(){
+  const r=Math.random();
+  // exploring 28%, resting 23%, curious 18%, playful 14%, watchful 17%
+  if(r<.28)return'exploring';
+  if(r<.51)return'resting';
+  if(r<.69)return'curious';
+  if(r<.83)return'playful';
+  return'watchful';
+}
+
+function pickB(){
+  const m=mxR();
+  const pools={
+    exploring:['drift','drift','patrol','patrol','dash','spiral','cross'],
+    resting:  ['drift','hover','hover','hover','hover'],
+    curious:  ['drift','patrol','hover','dart_poi','dart_poi'],
+    playful:  ['spiral','spiral','dash','loop','patrol'],
+    watchful: ['perch','perch','perch','hover','drift'], // mostly perched watching
+  };
+  const rmults={exploring:.85,resting:.20,curious:.55,playful:.65,watchful:.60};
+  const rm=rmults[pState]||.5;
+  let candidate=pools[pState][Math.floor(Math.random()*pools[pState].length)];
+  // dart_poi needs a target — fallback to drift if none
+  if(candidate==='dart_poi'&&!poiTarget)candidate='drift';
+  // ── POI HABITUATION — if she's been to this POI 3+ times in last 8 min, often prefer drift instead ──
+  if(candidate==='dart_poi'&&poiTarget){
+    const now2=Date.now();
+    poiHistory=poiHistory.filter(h=>now2-h.time<480000); // 8-min rolling window
+    const visitCount=poiHistory.filter(h=>Math.abs(h.x-poiTarget.x)<50&&Math.abs(h.y-poiTarget.y)<50).length;
+    if(visitCount>=3&&Math.random()<.65){candidate='drift';} // familiar — lose interest
+  }
+  beh=candidate;
+  if(beh==='drift'){wTgt.x=rnd(-m.x*rm,m.x*rm);wTgt.y=rnd(-m.y*rm,m.y*rm);lSpd=.007;bTimer=Date.now()+rnd(2700,6000);}
+  else if(beh==='patrol'){bPath=['circle','figure8','lemniscate','triangle'][Math.floor(Math.random()*4)];pathT=rnd(0,Math.PI*2);lSpd=.025;bTimer=Date.now()+rnd(5300,11300);}
+  else if(beh==='dash'){wTgt.x=rnd(-m.x*rm,m.x*rm);wTgt.y=rnd(-m.y*rm,m.y*rm);lSpd=.11;bTimer=Date.now()+rnd(850,1700);}
+  else if(beh==='hover'){lSpd=.003;bTimer=Date.now()+rnd(3300,6700);}
+  else if(beh==='spiral'){pathT=0;lSpd=.020;bTimer=Date.now()+rnd(4300,8000);}
+  else if(beh==='cross'){const s=Math.random()>.5?1:-1;wTgt.x=s*m.x*.90;wTgt.y=rnd(-m.y*.28,m.y*.28);lSpd=.0055;bTimer=Date.now()+rnd(11700,18300);}
+  else if(beh==='dart_poi'){wTgt.x=poiTarget.x;wTgt.y=poiTarget.y;lSpd=.072;bTimer=Date.now()+rnd(2000,4000);poiHistory.push({x:poiTarget.x,y:poiTarget.y,time:Date.now()});}
+  else if(beh==='loop'){loopCX=wPos.x;loopCY=wPos.y;loopAngle=rnd(0,Math.PI*2);lSpd=.18;bTimer=Date.now()+rnd(2800,4200);}
+  else if(beh==='perch'){
+    // Dragonfly percher: pick a spot at an interesting vantage and hold
+    watchfulPerchX=rnd(-m.x*.75,m.x*.75);
+    watchfulPerchY=rnd(-m.y*.70,m.y*.50);
+    wTgt.x=watchfulPerchX;wTgt.y=watchfulPerchY;
+    lSpd=.008; // glide to perch smoothly
+    bTimer=Date.now()+rnd(15000,25000); // 15-25s perched
+  }
+  // Curious: bias toward POI if available
+  if(poiTarget&&pState==='curious'&&beh!=='dart_poi'){wTgt.x=lerp(wTgt.x,poiTarget.x,.55);wTgt.y=lerp(wTgt.y,poiTarget.y,.55);}
+}
+
+function updateMov(){
+  let skipBehavior=false;
+  const now=Date.now();
+  const m=mxR();
+  // ── Trigger rare behaviors ──────────────────────────────
+  if(now>=zoomiesTimer&&!zoomiesActive&&!stillnessActive&&!orbitActive){
+    zoomiesActive=true;zoomiesDash=0;zoomiesWindup=true;lastZoomDash=now;
+    if(glideActive)glideActive=false; // zoomies override glide
+    zoomiesTimer=now+rnd(1200000,1800000)*(2-circadian());naviPulse=0.85;
+  }
+  if(now>=stillnessTimer&&!stillnessActive&&!zoomiesActive&&!orbitActive){
+    stillnessActive=true;stillnessStart=now;
+    stillnessTimer=now+rnd(1500000,2100000);
+  }
+  if(now>=orbitTimer&&!orbitActive&&!zoomiesActive&&!stillnessActive){
+    orbitActive=true;orbitAngle=rnd(0,Math.PI*2);orbitStart=now;beh='drift';
+    orbitTimer=now+rnd(2700000,3600000);
+  }
+  // ── Run rare behaviors ──────────────────────────────────
+  if(zoomiesActive){
+    if(zoomiesWindup){
+      // Anticipation wind-up: rapid wiggle for 400ms before first dash
+      twitchX=Math.sin((now-lastZoomDash)*.08)*18;twitchY=Math.cos((now-lastZoomDash)*.12)*10;
+      if(now-lastZoomDash>400){zoomiesWindup=false;lastZoomDash=now;twitchX=0;twitchY=0;}
+      skipBehavior=true;
+    }else{
+      if(now-lastZoomDash>=1000){
+        wTgt.x=rnd(-m.x*.92,m.x*.92);wTgt.y=rnd(-m.y*.88,m.y*.88);
+        lSpd=.20;zoomiesDash++;lastZoomDash=now;
+        if(zoomiesDash>=4){zoomiesActive=false;fatigueEnd=Date.now()+rnd(3000,4500);pickB();}
+      }
+      skipBehavior=true;
+    }
+  }
+  if(stillnessActive){
+    lSpd=.0008;bTimer=now+1000;skipBehavior=true;
+    if(now-stillnessStart>=7000){
+      stillnessActive=false;
+      shiverEnd=now+320; // Moth warmup shiver before resuming flight
+      pickB();
+    }
+  }
+  if(orbitActive){
+    orbitAngle+=.0022;
+    const orR=Math.min(safe(plPR*1.85),50);
+    wTgt.x=clamp(W*.29+Math.cos(orbitAngle)*orR,-m.x,m.x);
+    wTgt.y=clamp(-H*.33+Math.sin(orbitAngle)*orR*.5,-m.y,m.y);
+    lSpd=.018;bTimer=now+500;skipBehavior=true;
+    if(now-orbitStart>=75000){orbitActive=false;pickB();}
+  }
+  // ── Startle reflex ──────────────────────────────────────
+  if(startleEnd>0){
+    if(now<startleEnd){
+      wTgt.x+=startleX*.04;wTgt.y+=startleY*.04;lSpd=.12;
+      skipBehavior=true;
+    }else{startleEnd=0;startleX=0;startleY=0;}
+  }
+  // ── Normal behavior ─────────────────────────────────────
+  if(!skipBehavior){
+    if(now>=pTimer){pState=nextPState();pTimer=now+rnd(40000,90000);pickB();}
+    if(now>=poiTimer){const ps=buildPOI();poiTarget=Math.random()<.62?ps[Math.floor(Math.random()*ps.length)]:null;poiTimer=now+rnd(40000,80000);if(pState==='curious')pickB();}
+    if(now>=bTimer)pickB();
+    const rm={exploring:.85,resting:.20,curious:.55,playful:.65}[pState]||.5;
+    if(beh==='patrol'){
+      // Dual-frequency organic path noise — surges and slows, feels hand-drawn
+      pathT+=.013+Math.sin(t*.31)*.008+Math.sin(t*.73)*.004;
+      const px=m.x*rm*.78,py=m.y*rm*.78;
+      if(bPath==='circle'){wTgt.x=Math.cos(pathT)*px;wTgt.y=Math.sin(pathT)*py;}
+      else if(bPath==='figure8'){wTgt.x=Math.sin(pathT)*px;wTgt.y=Math.sin(pathT*2)*py;}
+      else if(bPath==='lemniscate'){const sc=1/safe(1+Math.sin(pathT)*Math.sin(pathT));wTgt.x=Math.cos(pathT)*sc*px*.92;wTgt.y=Math.sin(pathT)*Math.cos(pathT)*sc*py*.92;}
+      else{const p=(pathT%(Math.PI*2))/(Math.PI*2),seg=Math.floor(p*3),st2=(p*3)%1,pts=[[0,-py*.88],[px*.82,py*.62],[-px*.82,py*.62]],c=pts[seg%3],n=pts[(seg+1)%3];wTgt.x=c[0]+(n[0]-c[0])*st2;wTgt.y=c[1]+(n[1]-c[1])*st2;}
+    }else if(beh==='spiral'){pathT+=.01;const sr=Math.sin(pathT*.3)*m.x*rm*.78;wTgt.x=Math.cos(pathT)*sr;wTgt.y=Math.sin(pathT)*sr*.55;}
+    else if(beh==='loop'){
+      loopAngle+=.085;
+      const lr=30+Math.sin(loopAngle*.4)*12;
+      wTgt.x=loopCX+Math.cos(loopAngle)*lr;wTgt.y=loopCY+Math.sin(loopAngle)*lr*.65;
+    }
+    if(beh==='hover'){
+      if(pState==='resting'){
+        if(Math.random()<.0008&&twitchLife<=0){twitchX=rnd(-15,15);twitchY=rnd(-9,9);twitchLife=24;}
+        if(twitchLife>0){twitchLife--;twitchX*=.88;twitchY*=.88;}
+        wTgt.x+=Math.sin(t*.27)*.75;wTgt.y+=Math.cos(t*.18)*.48;
+      }else if(pState==='curious'&&poiTarget){
+        // Lean gently toward POI — like she's looking at it
+        wTgt.x+=(poiTarget.x-wTgt.x)*.0008;wTgt.y+=(poiTarget.y-wTgt.y)*.0008;
+      }
+      // SWING-HOVER — hawk moth lateral oscillation, most pronounced near POI
+      // Adds small side-slipping motion that looks alive and insectoid
+      swingPhase+=.065;
+      const swingAmt=(pState==='curious'||pState==='watchful')?6.5:3.8;
+      wTgt.x+=Math.sin(swingPhase)*swingAmt;
+      wTgt.y+=Math.sin(swingPhase*.31)*swingAmt*.35;
+    }else if(beh==='perch'){
+      // PERCH — dragonfly percher: hold position, subtle breathing sway only
+      const ambushing=ambushLaunchEnd>now;
+      if(!ambushing){
+        // Normal perch sway
+        lSpd=.008;
+        swingPhase+=.035;
+        wTgt.x=watchfulPerchX+Math.sin(swingPhase)*2.2;
+        wTgt.y=watchfulPerchY+Math.sin(swingPhase*.43)*1.5;
+      }else{
+        // Active ambush — maintain target (don't overwrite), just update speed
+        lSpd=.14;
+      }
+      // AMBUSH DETECTION — if a fast-moving event passes near perch, launch intercept
+      if(!ambushing){
+        let ambushTgtX=null,ambushTgtY=null;
+        // Check shooters
+        if(typeof shooters!=='undefined'&&shooters.length>0){
+          for(const s of shooters){
+            if(!s||s.life<=0)continue;
+            const sx=s.x-W/2,sy=s.y-H*.44;
+            const d=Math.sqrt((sx-wPos.x)**2+(sy-wPos.y)**2);
+            if(d<220){ambushTgtX=sx+s.vx*20;ambushTgtY=sy+s.vy*20;break;}
+          }
+        }
+        // Check comet rare event
+        if(ambushTgtX===null&&rEv==='comet'&&rD&&rD.vx!==undefined){
+          const cx=rD.x-W/2,cy=rD.y-H*.44;
+          const d=Math.sqrt((cx-wPos.x)**2+(cy-wPos.y)**2);
+          if(d<280){ambushTgtX=cx+rD.vx*25;ambushTgtY=cy+rD.vy*25;}
+        }
+        if(ambushTgtX!==null){
+          wTgt.x=clamp(ambushTgtX,-m.x*.95,m.x*.95);
+          wTgt.y=clamp(ambushTgtY,-m.y*.95,m.y*.95);
+          lSpd=.14;
+          ambushLaunchEnd=now+1500;
+          bTimer=now+4000; // extend so she returns to perch post-ambush
+          // Orient toward target so head visibly tracks it
+          orientX=ambushTgtX;orientY=ambushTgtY;orientEnd=now+1800;
+          naviPulse=.35; // subtle excitement flash
+        }
+      }
+      // Just-ended ambush: explicit return-to-perch nudge for first ~200ms
+      if(ambushLaunchEnd>0&&!ambushing&&now-ambushLaunchEnd<300&&now-ambushLaunchEnd>0){
+        wTgt.x=watchfulPerchX;wTgt.y=watchfulPerchY;lSpd=.025;
+      }
+    }else if(twitchLife>0){twitchLife--;twitchX*=.88;twitchY*=.88;}
+  }
+  // ── Shiver warmup (moth-inspired) — wing vibration + tiny body jitter ─
+  if(shiverEnd>now){
+    const sp=(shiverEnd-now)/320; // 1 at start → 0 at end
+    const sj=sp*2.2;
+    wTgt.x+=Math.sin(now*.08)*sj;
+    wTgt.y+=Math.cos(now*.11)*sj*.7;
+  }
+  // ── Physics (always runs) ───────────────────────────────
+  prevWX=wPos.x;prevWY=wPos.y;
+  // Fatigue — after zoomies, slow down 60% for 3-4s
+  const fatigued=fatigueEnd>Date.now();
+  // Circadian — night subtly energizes, day subtly calms. ±15%
+  const circ=circadian();
+  const effSpd=lSpd*(fatigued?.4:1.0)*(circ*.5+.5); // half-weighted so subtle
+  wPos.x+=(wTgt.x+twitchX-wPos.x)*effSpd;wPos.y+=(wTgt.y+twitchY-wPos.y)*effSpd;
+  velX=wPos.x-prevWX;velY=wPos.y-prevWY;
+  speed=Math.sqrt(velX*velX+velY*velY);
+  tiltTgt=velX*13;tilt+=(tiltTgt-tilt)*.04;
+  tiltYTgt=velY*5;tiltY+=(tiltYTgt-tiltY)*.04;
+  const distF=clamp((Math.abs(wPos.x)/Math.max(m.x,.1)+Math.abs(wPos.y)/Math.max(m.y,.1))*.5,0,1);
+  naviScaleTgt=lerp(1.06,.88,distF);naviScale=lerp(naviScale,naviScaleTgt,.022);
+}
+
+// ── PLANET HELPER ──────────────────────────────────────────
+let nebPos=[];
+function drawPlanet(bc,px,py,pr,o){
+  const{litR:lR,litG:lG,litB:lB,midR:mR,midG:mG,midB:mB,darkR:dR,darkG:dG,darkB:dB,atmR:aR,atmG:aG,atmB:aB,bands,ringData,polarColor,swirls}=o;
+  // Outer atmospheric halo
+  const ah=bc.createRadialGradient(px,py,pr*.85,px,py,pr*1.55);
+  ah.addColorStop(0,`rgba(${aR},${aG},${aB},.18)`);ah.addColorStop(.4,`rgba(${aR},${aG},${aB},.07)`);ah.addColorStop(1,`rgba(${aR},${aG},${aB},0)`);
+  bc.fillStyle=ah;bc.fillRect(px-pr*2,py-pr*2,pr*4,pr*4);
+  // Back rings
+  if(ringData){bc.save();bc.translate(px,py);bc.scale(1,.25);
+    ringData.back.forEach(([r2,w,col])=>{bc.beginPath();bc.ellipse(0,0,r2,r2,0,Math.PI*.05,Math.PI*1.05);bc.strokeStyle=col;bc.lineWidth=safe(w);bc.stroke();});
+    bc.strokeStyle='rgba(0,0,8,.38)';bc.lineWidth=safe(pr*.22);bc.beginPath();bc.ellipse(0,0,pr*1.40,pr*1.40,0,Math.PI*.48,Math.PI*.95);bc.stroke();
+    bc.restore();
+  }
+  // Planet body — clipped to circle
+  bc.save();bc.beginPath();bc.arc(px,py,pr,0,Math.PI*2);bc.clip();
+  bc.fillStyle=`rgb(${dR},${dG},${dB})`;bc.fillRect(px-pr,py-pr,pr*2,pr*2);
+  const bd=bc.createRadialGradient(px-pr*.32,py-pr*.28,0,px,py,pr);
+  bd.addColorStop(0,`rgb(${lR},${lG},${lB})`);
+  bd.addColorStop(.20,`rgb(${Math.round(lR*.72+mR*.28)},${Math.round(lG*.72+mG*.28)},${Math.round(lB*.72+mB*.28)})`);
+  bd.addColorStop(.48,`rgb(${mR},${mG},${mB})`);
+  bd.addColorStop(.75,`rgb(${Math.round(mR*.35+dR*.65)},${Math.round(mG*.35+dG*.65)},${Math.round(mB*.35+dB*.65)})`);
+  bd.addColorStop(1,`rgb(${dR},${dG},${dB})`);
+  bc.fillStyle=bd;bc.fillRect(px-pr,py-pr,pr*2,pr*2);
+  // Polar cap
+  if(polarColor){
+    const p=bc.createRadialGradient(px-pr*.16,py-pr*.50,0,px-pr*.16,py-pr*.50,pr*.56);
+    p.addColorStop(0,`rgba(${polarColor},.60)`);p.addColorStop(1,`rgba(${polarColor},0)`);
+    bc.fillStyle=p;bc.fillRect(px-pr,py-pr,pr*2,pr*2);
+  }
+  // Horizontal cloud bands
+  bands.forEach(([ry,op,cr,cg,cb])=>{
+    const by=py+ry*pr;
+    const b=bc.createLinearGradient(px-pr,by,px+pr,by);
+    b.addColorStop(0,`rgba(${cr},${cg},${cb},0)`);b.addColorStop(.28,`rgba(${cr},${cg},${cb},${op})`);
+    b.addColorStop(.72,`rgba(${cr},${cg},${cb},${op})`);b.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+    bc.fillStyle=b;bc.fillRect(px-pr,by-safe(pr*.06),pr*2,safe(pr*.12));
+  });
+  // ── NEW: Cloud swirl turbulence — soft eddies overlaid on bands ──
+  if(swirls){
+    swirls.forEach(([sx,sy,sr,srot,cr,cg,cb,op])=>{
+      bc.save();
+      bc.translate(px+sx*pr,py+sy*pr);
+      bc.rotate(srot);bc.scale(1,.45); // elongated ellipse shape like a jovian swirl
+      const swg=bc.createRadialGradient(0,0,0,0,0,safe(sr*pr));
+      swg.addColorStop(0,`rgba(${cr},${cg},${cb},${op})`);
+      swg.addColorStop(.6,`rgba(${cr},${cg},${cb},${op*.4})`);
+      swg.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+      bc.fillStyle=swg;bc.beginPath();bc.arc(0,0,sr*pr,0,Math.PI*2);bc.fill();
+      bc.restore();
+    });
+  }
+  // ── NEW: Ring shadow on planet body (iconic Saturn-like detail) ──
+  if(ringData){
+    // Shadow falls as a horizontal band across the planet's face
+    // The "lit" side here is upper-left (consistent with specular), so ring shadow sits below-right of center
+    const shY=py+pr*.05; // slight offset below center (ring plane just below equator from viewing angle)
+    const shH=safe(pr*.14);
+    const shg=bc.createLinearGradient(px-pr,shY,px-pr,shY+shH);
+    shg.addColorStop(0,'rgba(0,0,8,0)');
+    shg.addColorStop(.5,'rgba(0,0,8,.45)');
+    shg.addColorStop(1,'rgba(0,0,8,0)');
+    bc.fillStyle=shg;bc.fillRect(px-pr,shY-shH*.5,pr*2,shH);
+  }
+  // Night-side shadow (terminator shading)
+  const ni=bc.createRadialGradient(px+pr*.46,py-pr*.04,0,px,py,pr);
+  ni.addColorStop(.30,'rgba(0,0,0,0)');ni.addColorStop(.58,'rgba(0,0,0,.46)');ni.addColorStop(.80,'rgba(0,0,0,.85)');ni.addColorStop(1,'rgba(0,0,0,.98)');
+  bc.fillStyle=ni;bc.fillRect(px-pr,py-pr,pr*2,pr*2);
+  bc.restore();
+  // Limb glow / atmospheric edge
+  const lm=bc.createRadialGradient(px,py,pr*.88,px,py,pr*1.05);
+  lm.addColorStop(0,`rgba(${aR},${aG},${aB},0)`);
+  lm.addColorStop(.5,`rgba(${aR},${aG},${aB},.55)`);
+  lm.addColorStop(.75,`rgba(${Math.round(aR*.7+76)},${Math.round(aG*.7+76)},${Math.round(aB*.7+76)},.35)`);
+  lm.addColorStop(1,`rgba(${aR},${aG},${aB},0)`);
+  bc.save();bc.beginPath();bc.arc(px,py,pr*1.05,0,Math.PI*2);bc.clip();
+  bc.fillStyle=lm;bc.fillRect(px-pr*1.1,py-pr*1.1,pr*2.2,pr*2.2);bc.restore();
+  // ── NEW: Atmospheric terminator glow — thin bright arc at day/night boundary ──
+  // Creates the "scattered sunlight" edge that makes Saturn/Neptune look alive
+  {
+    bc.save();
+    bc.beginPath();bc.arc(px,py,pr*1.02,0,Math.PI*2);bc.clip();
+    // Arc on the lit hemisphere (upper-left since light is from there)
+    const termAng1=Math.PI*.58,termAng2=Math.PI*2.22; // roughly the sunlit limb
+    const tGrad=bc.createRadialGradient(px,py,pr*.88,px,py,pr*1.02);
+    tGrad.addColorStop(0,`rgba(${Math.min(255,aR+40)},${Math.min(255,aG+40)},${Math.min(255,aB+40)},0)`);
+    tGrad.addColorStop(.6,`rgba(${Math.min(255,aR+60)},${Math.min(255,aG+60)},${Math.min(255,aB+60)},.38)`);
+    tGrad.addColorStop(1,`rgba(${Math.min(255,aR+40)},${Math.min(255,aG+40)},${Math.min(255,aB+40)},0)`);
+    bc.strokeStyle=tGrad;bc.lineWidth=safe(pr*.06);
+    bc.beginPath();bc.arc(px,py,pr*.99,termAng1,termAng2);bc.stroke();
+    bc.restore();
+  }
+  // Lit limb highlight (existing)
+  bc.save();bc.strokeStyle=`rgba(${lR},${lG},${lB},.45)`;bc.lineWidth=safe(pr*.05);
+  bc.beginPath();bc.arc(px,py,pr,Math.PI*.52,Math.PI*2.25);bc.stroke();bc.restore();
+  // Front rings
+  if(ringData){bc.save();bc.translate(px,py);bc.scale(1,.25);
+    ringData.front.forEach(([r2,w,col])=>{bc.beginPath();bc.ellipse(0,0,r2,r2,0,-Math.PI*.95,Math.PI*.05);bc.strokeStyle=col;bc.lineWidth=safe(w);bc.stroke();});
+    bc.strokeStyle='rgba(0,0,8,.28)';bc.lineWidth=safe(pr*.18);bc.beginPath();bc.ellipse(0,0,pr*1.40,pr*1.40,0,-Math.PI*.12,Math.PI*.42);bc.stroke();
+    bc.restore();
+  }
+}
+
+// ── BUILD BACKGROUND ────────────────────────────────────────
+let bgCanvas=null;
+// Orion constellation stars — rendered live for twinkle (populated in buildBg)
+let ORION_STARS=[];
+function buildBg(){
+  bgCanvas=document.createElement('canvas');bgCanvas.width=W;bgCanvas.height=H;
+  const bc=bgCanvas.getContext('2d');
+  ORION_STARS=[]; // reset for resize
+  bc.fillStyle='#00000d';bc.fillRect(0,0,W,H);
+  const base=bc.createLinearGradient(0,0,W*.8,H);base.addColorStop(0,'rgba(4,6,22,.55)');base.addColorStop(1,'rgba(0,2,10,.3)');bc.fillStyle=base;bc.fillRect(0,0,W,H);
+
+  // ── MILKY WAY BAND — diagonal galactic plane ────────────
+  // ~22° angle across screen, soft warm glow + star density + dark rift
+  {
+    const ang=22*Math.PI/180; // band angle
+    const cx=W*.5,cy=H*.50;
+    const bandLen=Math.sqrt(W*W+H*H);
+    bc.save();bc.translate(cx,cy);bc.rotate(ang);
+    // Wide soft glow — warm white/ivory
+    const gw=H*.26; // band half-width
+    const bandGrad=bc.createLinearGradient(0,-gw,0,gw);
+    bandGrad.addColorStop(0,'rgba(255,248,230,0)');
+    bandGrad.addColorStop(.35,'rgba(255,246,226,.022)');
+    bandGrad.addColorStop(.5,'rgba(255,244,220,.038)');
+    bandGrad.addColorStop(.65,'rgba(255,246,226,.022)');
+    bandGrad.addColorStop(1,'rgba(255,248,230,0)');
+    bc.fillStyle=bandGrad;bc.fillRect(-bandLen,-gw,bandLen*2,gw*2);
+    // Dark rift — narrower lane of interstellar dust
+    const rift=bc.createLinearGradient(0,-gw*.15,0,gw*.15);
+    rift.addColorStop(0,'rgba(0,0,8,0)');
+    rift.addColorStop(.5,'rgba(0,0,8,.42)');
+    rift.addColorStop(1,'rgba(0,0,8,0)');
+    bc.fillStyle=rift;bc.fillRect(-bandLen,-gw*.15,bandLen*2,gw*.3);
+    // Star density increase along band — 180 extra dim stars
+    for(let i=0;i<180;i++){
+      const sx=rnd(-bandLen*.5,bandLen*.5);
+      const sy=rnd(-gw*.78,gw*.78)*(1-Math.random()*Math.random()); // density falloff from center
+      // Skip rift zone
+      if(Math.abs(sy)<gw*.12&&Math.random()<.55)continue;
+      bc.globalAlpha=rnd(.06,.24);
+      bc.fillStyle=Math.random()<.5?'rgb(255,240,218)':'rgb(220,230,255)';
+      bc.beginPath();bc.arc(sx,sy,rnd(.15,.55),0,Math.PI*2);bc.fill();
+    }
+    bc.globalAlpha=1;
+    bc.restore();
+  }
+
+  nebPos=[
+    {x:W*.71,y:H*.15,layers:[{r:W*.28,cr:62,cg:82,cb:210,op:.24},{r:W*.18,cr:82,cg:62,cb:248,op:.17},{r:W*.09,cr:115,cg:78,cb:255,op:.13}]},
+    {x:W*.11,y:H*.74,layers:[{r:W*.30,cr:12,cg:160,cb:182,op:.22},{r:W*.15,cr:0,cg:202,cb:192,op:.13}]},
+    {x:W*.04,y:H*.08,layers:[{r:W*.20,cr:122,cg:32,cb:202,op:.18},{r:W*.09,cr:152,cg:52,cb:232,op:.11}]},
+    {x:W*.55,y:H*.78,layers:[{r:W*.22,cr:215,cg:108,cb:38,op:.13},{r:W*.12,cr:195,cg:85,cb:22,op:.08}]},
+  ];
+  nebPos.forEach(({x,y,layers})=>layers.forEach(({r,cr,cg,cb,op})=>{const g=bc.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(${cr},${cg},${cb},${op})`);g.addColorStop(.38,`rgba(${cr},${cg},${cb},${op*.5})`);g.addColorStop(.68,`rgba(${cr},${cg},${cb},${op*.14})`);g.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);bc.fillStyle=g;bc.fillRect(0,0,W,H);}));
+  // (dark rifts removed — they never looked natural on this canvas)
+  // ── NEW: Embedded hot-spots (proto-star forming regions) — VERY SUBTLE ──
+  // Faint color-tinted brightness variations, NO sharp cores (avoids planet look)
+  [
+    {x:W*.71,y:H*.15,hr:255,hg:235,hb:205,sz:W*.022},   // warm wash in blue nebula
+    {x:W*.11,y:H*.74,hr:195,hg:245,hb:235,sz:W*.018},   // cyan-white wash in teal
+    {x:W*.04,y:H*.08,hr:230,hg:205,hb:245,sz:W*.016},   // violet-white in purple
+    {x:W*.55,y:H*.78,hr:245,hg:195,hb:140,sz:W*.018},   // warm in orange
+  ].forEach(({x,y,hr,hg,hb,sz})=>{
+    // Offset from nebula center for organic placement
+    const hx=x+Math.cos(x*.1+y*.13)*W*.02;
+    const hy=y+Math.sin(x*.11+y*.17)*W*.015;
+    // Only a wide soft color wash — no sharp bright core
+    const hg2=bc.createRadialGradient(hx,hy,0,hx,hy,safe(sz));
+    hg2.addColorStop(0,`rgba(${hr},${hg},${hb},.11)`);
+    hg2.addColorStop(.4,`rgba(${hr},${hg},${hb},.055)`);
+    hg2.addColorStop(.75,`rgba(${hr},${hg},${hb},.015)`);
+    hg2.addColorStop(1,`rgba(${hr},${hg},${hb},0)`);
+    bc.fillStyle=hg2;bc.fillRect(hx-sz,hy-sz,sz*2,sz*2);
+  });
+  [{x:W*.70,y:H*.13,r:W*.12,n:90},{x:W*.11,y:H*.74,r:W*.09,n:60}].forEach(({x,y,r,n})=>{for(let i=0;i<n;i++){const a=rnd(0,Math.PI*2),d=rnd(0,r),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d;bc.globalAlpha=(0.04+rnd(0,.24))*(1-d/r);bc.fillStyle=`rgb(${180+Math.round(rnd(0,75))},${192+Math.round(rnd(0,63))},255)`;bc.beginPath();bc.arc(px,py,rnd(.1,.9),0,Math.PI*2);bc.fill();}});bc.globalAlpha=1;
+
+  // ── PERMANENT DEEP-FIELD GALAXIES — genuinely dark corners ──
+  galaxyDefs=[
+    {x:W*.06,y:H*.50,a:.6,sz:14,cr:255,cg:235,cb:210,quasar:true,rotSpd:.0000075},    // 14 min rotation
+    {x:W*.88,y:H*.48,a:1.1,sz:10,cr:200,cg:210,cb:255,quasar:false,rotSpd:-.0000062}, // 17 min reverse
+    {x:W*.32,y:H*.90,a:.3,sz:18,cr:255,cg:218,cb:195,quasar:false,rotSpd:.0000055},   // 19 min
+    {x:W*.58,y:H*.08,a:2.1,sz:11,cr:210,cg:255,cb:245,quasar:false,rotSpd:-.0000082}, // 13 min reverse
+    {x:W*.92,y:H*.22,a:.9,sz:12,cr:255,cg:240,cb:220,quasar:false,rotSpd:.0000068},   // 15 min
+  ];
+  galaxyDefs.forEach(({x,y,a,sz,cr,cg,cb,quasar})=>{
+    if(quasar){QUASAR_X=x;QUASAR_Y=y;}
+    bc.save();bc.translate(x,y);bc.rotate(a);
+    const co=bc.createRadialGradient(0,0,0,0,0,safe(sz*.32));co.addColorStop(0,`rgba(${cr},${cg},${cb},.48)`);co.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);bc.fillStyle=co;bc.beginPath();bc.ellipse(0,0,sz*.32,sz*.32,0,0,Math.PI*2);bc.fill();
+    const di=bc.createRadialGradient(0,0,0,0,0,safe(sz));di.addColorStop(0,`rgba(${cr},${cg},${cb},.20)`);di.addColorStop(.5,`rgba(${cr},${cg},${cb},.09)`);di.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);bc.fillStyle=di;bc.beginPath();bc.ellipse(0,0,sz,sz*.44,0,0,Math.PI*2);bc.fill();
+    bc.strokeStyle=`rgba(${cr},${cg},${cb},.07)`;bc.lineWidth=.35;
+    for(let arm=0;arm<2;arm++){bc.beginPath();for(let i=0;i<22;i++){const ang=(arm*Math.PI)+(i/22)*Math.PI*1.4,rad=(i/22)*sz;i===0?bc.moveTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.44):bc.lineTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.44);}bc.stroke();}
+    bc.restore();
+  });
+
+  // ── ORION CONSTELLATION — permanent, baked into background ──
+  // Anchored in empty upper-mid area. Scale sets overall size.
+  {
+    const oCx=W*.38,oCy=H*.34,oS=H*.22;
+    // Star positions relative to center (normalized -1 to 1 in constellation space)
+    // Based on real Orion geometry
+    const orionStars=[
+      // [nx, ny, size, r, g, b, name]
+      // Top row — shoulders + head
+      [-0.45,-0.88,2.4, 255,158,95,  'Betelgeuse'], // red supergiant, right shoulder (our left)
+      [ 0.48,-0.85,1.9, 195,210,255, 'Bellatrix'],  // blue giant, left shoulder (our right)
+      [ 0.02,-1.10,1.2, 200,215,255, 'Meissa'],     // faint head
+      // Belt — three in a line
+      [-0.22,-0.02,1.7, 190,210,255, 'Mintaka'],    // belt right
+      [ 0.02, 0.04,2.0, 210,225,255, 'Alnilam'],    // belt center (brightest)
+      [ 0.24, 0.09,1.7, 195,215,255, 'Alnitak'],    // belt left
+      // Bottom row — knees
+      [-0.58, 0.96,2.3, 195,220,255, 'Rigel'],      // brightest, bottom-right (our left)
+      [ 0.52, 0.88,1.6, 200,220,255, 'Saiph'],      // bottom-left (our right)
+      // Sword (hanging below belt)
+      [-0.04, 0.38,1.0, 190,205,255, 'sword1'],
+      [ 0.00, 0.52,0.9, 185,200,255, 'sword2'],
+      [ 0.04, 0.66,1.0, 190,205,255, 'sword3'],
+    ];
+    orionStars.forEach(([nx,ny,sz,cr,cg,cb,name])=>{
+      const sx=oCx+nx*oS*.5,sy=oCy+ny*oS*.5;
+      // Store for live rendering (twinkle)
+      ORION_STARS.push({x:sx,y:sy,sz,cr,cg,cb,tw:rnd(0,Math.PI*2),ts:rnd(.018,.032),name});
+    });
+    // Orion Nebula (M42) — subtle dusty glow below the sword, NOT overlapping sword stars
+    // Real M42 is rust/brown-red in wide-field, not bright pink
+    const nebX=oCx+oS*.03,nebY=oCy+oS*.42; // offset BELOW sword stars
+    const neb=bc.createRadialGradient(nebX,nebY,0,nebX,nebY,safe(oS*.16));
+    neb.addColorStop(0,'rgba(180,110,95,.09)');
+    neb.addColorStop(.35,'rgba(155,90,100,.055)');
+    neb.addColorStop(.75,'rgba(110,75,125,.02)');
+    neb.addColorStop(1,'rgba(90,70,140,0)');
+    bc.fillStyle=neb;bc.fillRect(nebX-oS*.20,nebY-oS*.20,oS*.40,oS*.40);
+  }
+
+  // Ice giant
+  plPR=clamp(Math.min(W,H)*.034,34,44);
+  const plX=PL1X(),plY=PL1Y();
+  drawPlanet(bc,plX,plY,plPR,{litR:195,litG:248,litB:242,midR:88,midG:185,midB:178,darkR:8,darkG:38,darkB:36,atmR:140,atmG:230,atmB:225,polarColor:'220,252,248',bands:[[-0.45,.08,95,188,183],[-0.18,.07,72,165,158],[0.15,.07,60,152,145],[0.42,.06,48,138,132]],swirls:[[-0.18,-0.22,.24,0.3,130,215,205,.18],[0.14,0.12,.20,-0.5,110,200,190,.14],[-0.28,0.30,.15,0.8,145,225,215,.12]],ringData:{back:[[plPR*1.22,plPR*.045,'rgba(72,55,32,.35)'],[plPR*1.37,plPR*.130,'rgba(192,162,108,.60)'],[plPR*1.53,plPR*.065,'rgba(162,134,90,.50)'],[plPR*1.63,plPR*.012,'rgba(218,196,150,.34)']],front:[[plPR*1.37,plPR*.130,'rgba(192,162,108,.68)'],[plPR*1.53,plPR*.065,'rgba(162,134,90,.58)'],[plPR*1.63,plPR*.012,'rgba(218,196,150,.38)']]}});
+  // Moon — fixed position, properly outside rings
+  const moonAngle=0.72;
+  const mx=plX+Math.cos(moonAngle)*plPR*1.95;
+  const my=plY+Math.sin(moonAngle)*plPR*1.95*.35; // perspective y-scale
+  const mr=clamp(plPR*.27,8.0,11.0);
+  const mg=bc.createRadialGradient(mx,my,0,mx,my,mr*3.5);mg.addColorStop(0,'rgba(210,225,255,.14)');mg.addColorStop(1,'rgba(0,0,0,0)');bc.fillStyle=mg;bc.fillRect(mx-mr*4,my-mr*4,mr*8,mr*8);
+  bc.save();bc.beginPath();bc.arc(mx,my,mr,0,Math.PI*2);bc.clip();
+  bc.fillStyle='#10101a';bc.fillRect(mx-mr,my-mr,mr*2,mr*2);
+  // Base lit hemisphere gradient (upper-left lit, consistent with planet lighting)
+  const mb=bc.createRadialGradient(mx-mr*.3,my-mr*.3,0,mx,my,mr);
+  mb.addColorStop(0,'rgb(210,222,236)');
+  mb.addColorStop(.5,'rgb(148,158,175)');
+  mb.addColorStop(1,'rgb(52,58,72)');
+  bc.fillStyle=mb;bc.fillRect(mx-mr,my-mr,mr*2,mr*2);
+  // Maria / craters — darker smudges positioned on lit hemisphere
+  const craters=[
+    [0.15,-0.10,mr*.28,'rgba(38,44,58,.55)'],   // upper-right area
+    [-0.20,0.25,mr*.32,'rgba(32,38,52,.48)'],   // lower-left area
+    [0.30,0.35,mr*.18,'rgba(42,48,62,.42)'],    // smaller spot
+  ];
+  craters.forEach(([ox,oy,cr,col])=>{
+    const cg=bc.createRadialGradient(mx+ox*mr,my+oy*mr,0,mx+ox*mr,my+oy*mr,safe(cr));
+    cg.addColorStop(0,col);
+    cg.addColorStop(.7,col.replace(/,[\d.]+\)/,',' + '.18)'));
+    cg.addColorStop(1,col.replace(/,[\d.]+\)/,',0)'));
+    bc.fillStyle=cg;bc.beginPath();bc.arc(mx+ox*mr,my+oy*mr,cr,0,Math.PI*2);bc.fill();
+  });
+  // Terminator shadow (day-night line) — dark side
+  const term=bc.createRadialGradient(mx+mr*.35,my-mr*.05,0,mx,my,mr);
+  term.addColorStop(.4,'rgba(0,0,0,0)');
+  term.addColorStop(.7,'rgba(0,0,0,.55)');
+  term.addColorStop(1,'rgba(0,0,0,.92)');
+  bc.fillStyle=term;bc.fillRect(mx-mr,my-mr,mr*2,mr*2);
+  // ── NEW: PLANETSHINE — faint teal glow on moon's dark side from ice giant ──
+  // The moon orbits next to the teal ice giant, so its dark hemisphere gets bounce-light
+  // from the planet (the same way Earth's moon shows "earthshine" as a faint blue-grey)
+  // Ice giant direction from moon: moon is at angle 0.72 rad from planet, so planet is in opposite direction
+  const planetDirX=-Math.cos(moonAngle),planetDirY=-Math.sin(moonAngle)*.35;
+  const psX=mx+planetDirX*mr*.55,psY=my+planetDirY*mr*.55;
+  const ps=bc.createRadialGradient(psX,psY,0,psX,psY,mr*1.3);
+  ps.addColorStop(0,'rgba(110,200,185,.32)');
+  ps.addColorStop(.5,'rgba(85,165,155,.18)');
+  ps.addColorStop(1,'rgba(70,135,130,0)');
+  bc.fillStyle=ps;bc.fillRect(mx-mr*1.4,my-mr*1.4,mr*2.8,mr*2.8);
+  bc.restore();
+
+  // Gas giant
+  p2PR=clamp(Math.min(W,H)*.019,18,24);
+  drawPlanet(bc,PL2X(),PL2Y(),p2PR,{litR:252,litG:195,litB:108,midR:198,midG:115,midB:42,darkR:22,darkG:6,darkB:0,atmR:235,atmG:162,atmB:88,polarColor:'255,225,175',bands:[[-0.38,.18,128,62,16],[-0.08,.14,108,48,10],[0.22,.16,118,55,14],[0.45,.12,95,42,8]],swirls:[[-0.20,-0.12,.28,0.2,220,135,55,.32],[0.05,0.18,.22,-0.4,165,75,20,.28],[-0.35,0.25,.18,0.6,230,150,70,.22],[0.25,-0.25,.15,0.1,195,95,35,.20],[-0.10,0.05,.12,1.2,140,60,15,.25]],ringData:null});
+
+  for(let i=0;i<500;i++){bc.globalAlpha=rnd(.006,.055);bc.fillStyle='#a8beff';bc.beginPath();bc.arc(rnd(0,W),rnd(0,H),rnd(.06,.36),0,Math.PI*2);bc.fill();}bc.globalAlpha=1;
+}
+
+// ── LIVE PLANET EFFECTS ─────────────────────────────────────
+// Aurora on ice giant (Webb-accurate: rosy + teal patches on polar cap)
+function drawPlanetAurora(){
+  if(!plPR)return;
+  const px=PL1X(),py=PL1Y();
+  for(let i=0;i<5;i++){
+    const aT=t*.010+i*1.26;
+    const angle=aT+Math.sin(t*.006+i)*.45;
+    const depth=plPR*.52+Math.sin(t*.014+i*1.8)*plPR*.12;
+    const ax=px-plPR*.16+Math.cos(angle)*depth*.72;
+    const ay=py-plPR*.48+Math.sin(angle)*depth*.28;
+    const inside=Math.sqrt((ax-px)**2+(ay-py)**2)<plPR;
+    if(!inside)continue;
+    const col=i%2===0?[205,78,125]:[72,205,182]; // rosy or teal
+    const op=(.06+Math.sin(t*.022+i*1.4)*.04)*auroraFlareMult;
+    // Main patch
+    const ag=ctx.createRadialGradient(ax,ay,0,ax,ay,safe(plPR*.28));
+    ag.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},${op})`);
+    ag.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+    ctx.fillStyle=ag;ctx.fillRect(ax-plPR*.32,ay-plPR*.32,plPR*.64,plPR*.64);
+    // ── NEW: Curtain structure — vertical falling streaks below each patch ──
+    // Real auroras cascade down in ribbon-curtain formations
+    const curtainCount=2;
+    for(let c=0;c<curtainCount;c++){
+      // Stagger curtain positions relative to patch center
+      const cx=ax+(c-0.5)*plPR*.08+Math.sin(t*.018+i*2.1+c*1.3)*plPR*.03;
+      const cyStart=ay-plPR*.05; // just below patch
+      const cLen=plPR*.35+Math.sin(t*.024+i+c*1.9)*plPR*.12;
+      const cEnd=cyStart+cLen;
+      // Check the curtain stays inside planet circle roughly
+      if(Math.sqrt((cx-px)**2+(cEnd-py)**2)>plPR*.95)continue;
+      // Vertical streak gradient — bright top, fade to bottom
+      const cOp=op*.7*(0.7+Math.sin(t*.04+i+c*.9)*.3);
+      const sg=ctx.createLinearGradient(cx,cyStart,cx,cEnd);
+      sg.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},${cOp})`);
+      sg.addColorStop(.5,`rgba(${col[0]},${col[1]},${col[2]},${cOp*.55})`);
+      sg.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+      ctx.strokeStyle=sg;
+      ctx.lineWidth=safe(plPR*.022);
+      ctx.beginPath();ctx.moveTo(cx,cyStart);ctx.lineTo(cx+Math.sin(t*.06+c*2.4)*plPR*.04,cEnd);ctx.stroke();
+    }
+  }
+}
+
+// Gas giant storm — slow rotating dark oval with internal vortex spiral (Great Red Spot style)
+function drawGasGiantStorm(){
+  if(!p2PR)return;
+  const px=PL2X(),py=PL2Y();
+  const stormA=t*.0035;
+  const sx=px+Math.cos(stormA)*p2PR*.38;
+  const sy=py+Math.sin(stormA)*p2PR*.18;
+  // Only on lit side
+  if(sx>px+p2PR*.32)return;
+  ctx.save();ctx.beginPath();ctx.arc(px,py,p2PR,0,Math.PI*2);ctx.clip();
+  const sr=p2PR*.30;
+  // Outer dark vortex mass (existing)
+  const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(sr));
+  sg.addColorStop(0,'rgba(72,28,5,.62)');
+  sg.addColorStop(.38,'rgba(95,42,10,.42)');
+  sg.addColorStop(1,'rgba(115,58,18,0)');
+  ctx.fillStyle=sg;ctx.fillRect(sx-sr,sy-sr,sr*2,sr*2);
+  // ── NEW: Internal vortex swirl — rotating arc segments ──
+  // Creates the hypnotic "eye of the storm" visual that Jupiter's GRS has
+  ctx.save();ctx.translate(sx,sy);
+  const swirlT=t*.025; // internal rotation — faster than outer drift
+  // 3 concentric arc "streams" at different radii, each offset in phase
+  for(let ring=0;ring<3;ring++){
+    const ringR=sr*(.3+ring*.22);
+    const ringOp=.34-ring*.08;
+    const phaseOff=ring*1.1;
+    // Each ring is a broken arc (gives spiral look)
+    for(let arc=0;arc<2;arc++){
+      const arcStart=swirlT*(1-ring*.12)+phaseOff+arc*Math.PI;
+      const arcLen=Math.PI*.55;
+      ctx.strokeStyle=`rgba(${60+ring*15},${22+ring*12},${4+ring*8},${ringOp})`;
+      ctx.lineWidth=safe(sr*.09-ring*sr*.018);
+      ctx.beginPath();
+      ctx.ellipse(0,0,ringR,ringR*.75,0,arcStart,arcStart+arcLen);
+      ctx.stroke();
+    }
+  }
+  // Central "eye" — slightly brighter ochre at the heart of the vortex
+  const eye=ctx.createRadialGradient(0,0,0,0,0,safe(sr*.2));
+  eye.addColorStop(0,'rgba(165,88,32,.38)');
+  eye.addColorStop(.6,'rgba(138,68,22,.18)');
+  eye.addColorStop(1,'rgba(115,58,18,0)');
+  ctx.fillStyle=eye;ctx.beginPath();ctx.arc(0,0,sr*.2,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
+// ── STARS ──────────────────────────────────────────────────
+const STAR_COLS=[[255,235,195],[200,218,255],[255,252,240],[215,255,252],[255,225,185],[188,210,255]];
+function mkS(n,rMin,rMax,oMin,oMax,sMin,sMax,colored){return Array.from({length:n},()=>{const ts=rnd(sMin,sMax);return{x:rnd(0,4096),y:rnd(0,2160),r:rnd(rMin,rMax),op:rnd(oMin,oMax),baseOp:0,tw:rnd(0,Math.PI*2),tw2:rnd(0,Math.PI*2),ts,ts2:ts*(1.618+rnd(0,.4)),fl:1,col:colored?STAR_COLS[Math.floor(Math.random()*STAR_COLS.length)]:null};});}
+const S1=mkS(450,.6,1.4,.06,.20,.025,.055,false);
+const S2=mkS(100,1.2,2.2,.10,.32,.022,.048,false);
+const S3=mkS(22,.78,2.05,.14,.42,.015,.035,true);
+// Store base opacity for variable star
+S3.forEach(s=>s.baseOp=s.op);
+const VAR_STAR=3; // S3[3] is the variable star
+// Binary star system — S3[7] and S3[8] orbit a shared center
+const BIN_A=7,BIN_B=8;
+let BIN_CX=0,BIN_CY=0,BIN_RAD=0;
+// Initialize binary center based on S3[7] position and give them same baseline
+if(S3[BIN_A]&&S3[BIN_B]){
+  BIN_CX=S3[BIN_A].x;BIN_CY=S3[BIN_A].y;
+  BIN_RAD=9; // small separation
+  S3[BIN_B].x=S3[BIN_A].x;S3[BIN_B].y=S3[BIN_A].y; // co-locate, orbital math handles visual separation
+}
+
+function drawStars(){
+  // Exclusion zones — don't draw stars inside planets or moon
+  const px1=PL1X(),py1=PL1Y(),pr1=plPR*1.1;
+  const px2=PL2X(),py2=PL2Y(),pr2=p2PR*1.1;
+  const moonA=0.72,mx=px1+Math.cos(moonA)*plPR*1.95,my=py1+Math.sin(moonA)*plPR*1.95*.35,mr=clamp(plPR*.27,8.0,11.0)*1.8;
+  function blocked(sx,sy){
+    return(sx-px1)**2+(sy-py1)**2<pr1*pr1||
+           (sx-px2)**2+(sy-py2)**2<pr2*pr2||
+           (sx-mx)**2+(sy-my)**2<mr*mr;
+  }
+  // Global slow hue drift — shifts whole sky subtly toward warm/cool over ~5 min
+  const hueDrift=Math.sin(t*.00042)*6; // ±6 units in R and B channels
+  const baseR=210+hueDrift,baseB=222-hueDrift;
+  ctx.fillStyle=`rgb(${Math.round(baseR)},${Math.round(baseR+12)},${Math.round(baseB)})`;
+  S1.forEach(s=>{s.tw+=s.ts;s.tw2+=s.ts2;const sx=s.x%W,sy=s.y%H;if(blocked(sx,sy))return;ctx.globalAlpha=s.op*(0.62+Math.sin(s.tw)*.24+Math.sin(s.tw2)*.14)*s.fl;ctx.beginPath();ctx.arc(sx,sy,s.r,0,Math.PI*2);ctx.fill();});
+  S2.forEach(s=>{s.tw+=s.ts;s.tw2+=s.ts2;const sx=s.x%W,sy=s.y%H;if(blocked(sx,sy))return;ctx.globalAlpha=s.op*(0.62+Math.sin(s.tw)*.24+Math.sin(s.tw2)*.14)*s.fl;ctx.beginPath();ctx.arc(sx,sy,s.r,0,Math.PI*2);ctx.fill();});
+  // Binary star orbit — ~90 second period
+  const binA=t*.07;
+  S3.forEach((s,i)=>{
+    s.tw+=s.ts;s.tw2+=s.ts2;
+    let rawX=s.x,rawY=s.y;
+    // Apply binary orbit offset for paired stars
+    if(i===BIN_A){rawX=BIN_CX+Math.cos(binA)*BIN_RAD;rawY=BIN_CY+Math.sin(binA)*BIN_RAD*.5;}
+    else if(i===BIN_B){rawX=BIN_CX+Math.cos(binA+Math.PI)*BIN_RAD;rawY=BIN_CY+Math.sin(binA+Math.PI)*BIN_RAD*.5;}
+    const sx=rawX%W,sy=rawY%H;
+    if(blocked(sx,sy))return;
+    const twinkle=0.62+Math.sin(s.tw)*.22+Math.sin(s.tw2)*.16;
+    const op=s.op*twinkle*s.fl;
+    // Enhanced hue shift on bright peaks — more pronounced now
+    if(s.col){
+      const peak=twinkle>0.88;
+      const cr=peak?Math.min(255,s.col[0]+28):s.col[0];
+      const cg=peak?Math.min(255,s.col[1]+8):s.col[1];
+      const cb=peak?Math.max(0,s.col[2]-30):s.col[2];
+      ctx.fillStyle=`rgb(${cr},${cg},${cb})`;
+    }else ctx.fillStyle=`rgb(${Math.round(220+hueDrift)},${Math.round(230+hueDrift*.5)},${Math.round(255-hueDrift)})`;
+    ctx.globalAlpha=op;
+    ctx.beginPath();ctx.arc(sx,sy,s.r,0,Math.PI*2);ctx.fill();
+    if(s.col&&s.r>1.4){
+      const halo=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(s.r*3.5));
+      halo.addColorStop(0,`rgba(${s.col[0]},${s.col[1]},${s.col[2]},${op*.35})`);
+      halo.addColorStop(1,`rgba(${s.col[0]},${s.col[1]},${s.col[2]},0)`);
+      ctx.fillStyle=halo;ctx.beginPath();ctx.arc(sx,sy,s.r*3.5,0,Math.PI*2);ctx.fill();
+    }
+    // ── NEW: Diffraction spikes on brightest S3 stars (top 30% by radius, only on twinkle peaks) ──
+    if(s.col&&s.r>1.7&&twinkle>0.85){
+      const spikeLen=s.r*5.5*twinkle;
+      const spikeOp=op*.55;
+      ctx.save();ctx.globalAlpha=spikeOp;
+      ctx.strokeStyle=`rgba(${Math.min(255,s.col[0]+30)},${Math.min(255,s.col[1]+30)},${Math.min(255,s.col[2]+20)},.75)`;
+      ctx.lineWidth=.6;
+      ctx.beginPath();ctx.moveTo(sx-spikeLen,sy);ctx.lineTo(sx+spikeLen,sy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(sx,sy-spikeLen);ctx.lineTo(sx,sy+spikeLen);ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha=op;
+    }
+    if(i===VAR_STAR){
+      const varPhase=Math.sin(t*.0019)*.5+.5;
+      if(varPhase>.08){
+        const vR=Math.round(255-varPhase*55),vG=Math.round(242-varPhase*22),vB=Math.round(180+varPhase*75);
+        const vg=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(s.r*5*varPhase));
+        vg.addColorStop(0,`rgba(${vR},${vG},${vB},${varPhase*.55})`);
+        vg.addColorStop(1,`rgba(${vR},${vG},${vB},0)`);
+        ctx.fillStyle=vg;ctx.beginPath();ctx.arc(sx,sy,s.r*5*varPhase,0,Math.PI*2);ctx.fill();
+      }
+    }
+  });
+  ctx.globalAlpha=1;
+}
+
+// Slow dust drift — now follows cosmic wind current with occasional gusts
+const DUST=Array.from({length:10},()=>({x:rnd(0,4096),y:rnd(0,2160),ivx:rnd(-.04,.04),ivy:rnd(-.02,.02),op:rnd(.025,.08),r:rnd(.28,.72),tw:rnd(0,Math.PI*2),ts:rnd(.0015,.004)}));
+let gustEnd=0,gustNext=Date.now()+rnd(30000,60000);
+function drawDust(nx,ny,r,g,b){
+  // Use Navi's actual current screen position (not just center) for tracking glow
+  const nsx=W/2+wPos.x,nsy=H*.44+wPos.y;
+  const now=Date.now();
+  // Gust system — ~45s intervals, 3-4s duration
+  if(now>=gustNext&&gustEnd<=0){gustEnd=now+rnd(3000,4500);gustNext=now+rnd(30000,60000);}
+  if(gustEnd>0&&now>gustEnd)gustEnd=0;
+  const gustMult=gustEnd>0?2.2:1.0;
+  const cc=cosmicCurrent();
+  // Navi's brightness amplifies her magical glow — happier/faster/pulsing = more light cast
+  const naviLight=(1+speed*2+naviPulse*1.2)*naviBright;
+  DUST.forEach(d=>{
+    d.tw+=d.ts;
+    const wvx=(cc.x*.11+d.ivx*.3)*gustMult;
+    const wvy=(cc.y*.07+d.ivy*.3)*gustMult;
+    d.x=(d.x+wvx+4096)%4096;d.y=(d.y+wvy+2160)%2160;
+    const dx=((d.x+nx*.06)%W+W)%W,dy=((d.y+ny*.03)%H+H)%H;
+    const dist=Math.sqrt((dx-nsx)**2+(dy-nsy)**2);
+    // ── NAVI'S MAGICAL GLOW ON NEARBY DUST ──
+    // Dust within 120px gets strong color tint matching her mood
+    // Within 60px gets brightness boost too — like fireflies lit by her presence
+    const closeBlend=Math.max(0,1-dist/120)*.85*naviLight;
+    const lightBoost=Math.max(0,1-dist/60)*.6*naviLight;
+    const dr=Math.round(192+r*closeBlend);
+    const dg=Math.round(208+g*closeBlend);
+    const db=Math.round(245+b*closeBlend*.5);
+    ctx.globalAlpha=Math.min(1,d.op*(0.4+Math.sin(d.tw)*.6)*(1+lightBoost));
+    ctx.fillStyle=`rgb(${clamp(dr,0,255)},${clamp(dg,0,255)},${clamp(db,0,255)})`;
+    ctx.beginPath();ctx.arc(dx,dy,d.r,0,Math.PI*2);ctx.fill();
+    // Close dust gets a tiny glow halo — makes it feel illuminated
+    if(dist<80&&lightBoost>.15){
+      const haloR=d.r*3.5;
+      const hg=ctx.createRadialGradient(dx,dy,0,dx,dy,safe(haloR));
+      hg.addColorStop(0,`rgba(${clamp(r,0,255)},${clamp(g,0,255)},${clamp(b,0,255)},${lightBoost*.35})`);
+      hg.addColorStop(1,`rgba(${clamp(r,0,255)},${clamp(g,0,255)},${clamp(b,0,255)},0)`);
+      ctx.fillStyle=hg;ctx.beginPath();ctx.arc(dx,dy,haloR,0,Math.PI*2);ctx.fill();
+    }
+  });ctx.globalAlpha=1;
+}
+
+// ── ORION LIVE STARS — twinkling constellation ──
+function drawOrion(){
+  if(!ORION_STARS.length)return;
+  ctx.save();
+  ORION_STARS.forEach(s=>{
+    s.tw+=s.ts;
+    const twinkle=0.68+Math.sin(s.tw)*.22+Math.sin(s.tw*1.618)*.10;
+    const {x:sx,y:sy,sz,cr,cg,cb}=s;
+    // BIG soft halo
+    const haloR=sz*7;
+    const halo=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(haloR));
+    const haloOp=.45*twinkle;
+    halo.addColorStop(0,`rgba(${cr},${cg},${cb},${haloOp})`);
+    halo.addColorStop(.15,`rgba(${cr},${cg},${cb},${haloOp*.44})`);
+    halo.addColorStop(.4,`rgba(${cr},${cg},${cb},${haloOp*.13})`);
+    halo.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(sx,sy,haloR,0,Math.PI*2);ctx.fill();
+    // Tight colored core
+    const coreR=sz*1.1;
+    const core=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(coreR));
+    core.addColorStop(0,`rgba(255,255,255,${Math.min(1,twinkle)})`);
+    core.addColorStop(.35,`rgba(${Math.min(255,cr+40)},${Math.min(255,cg+40)},${Math.min(255,cb+40)},${.9*twinkle})`);
+    core.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(sx,sy,coreR,0,Math.PI*2);ctx.fill();
+    // Diffraction spikes — only on brightest stars, only on twinkle peaks
+    if(sz>=1.7&&twinkle>0.82){
+      ctx.save();ctx.globalAlpha=.4*twinkle;
+      ctx.strokeStyle=`rgba(${Math.min(255,cr+40)},${Math.min(255,cg+40)},${Math.min(255,cb+40)},.72)`;
+      ctx.lineWidth=.55;
+      const spike=sz*4.5*twinkle;
+      ctx.beginPath();ctx.moveTo(sx-spike,sy);ctx.lineTo(sx+spike,sy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(sx,sy-spike);ctx.lineTo(sx,sy+spike);ctx.stroke();
+      ctx.restore();
+    }
+  });
+  ctx.restore();
+}
+
+let shooters=[],shootTimer=Date.now()+rnd(3000,7000);
+function updateShooters(){
+  const now=Date.now();
+  if(now>=shootTimer){
+    const sx=rnd(0,W*.65),sy=rnd(0,H*.4);
+    // Color variation: 60% white, 15% blue, 15% green, 10% gold
+    const rCol=Math.random();
+    let col;
+    if(rCol<.60)col=[255,255,255];
+    else if(rCol<.75)col=[180,215,255];
+    else if(rCol<.90)col=[170,255,190];
+    else col=[255,230,150];
+    // Rare fireball (5% chance) — 3x size, longer life, smoke trail
+    const isFireball=Math.random()<.05;
+    shooters.push({
+      x:sx,y:sy,
+      vx:rnd(12,20),vy:rnd(3,7),
+      life:1,
+      col,
+      fireball:isFireball,
+      smokeTrail:[] // for fireball smoke persistence
+    });
+    shootTimer=now+rnd(4000,9000);
+    orientX=sx+W*.2;orientY=sy+H*.1;orientEnd=now+1500;
+  }
+  shooters=shooters.filter(s=>s.life>-0.2); // keep briefly past death for terminal flash
+  ctx.save();
+  shooters.forEach(s=>{
+    s.x+=s.vx;s.y+=s.vy;
+    const decay=s.fireball?.022:.036;
+    s.life-=decay;
+    const col=s.col||[255,255,255];
+    const sizeMult=s.fireball?3:1;
+    // Normal streak drawing
+    if(s.life>0){
+      const g=ctx.createLinearGradient(s.x,s.y,s.x-s.vx*4.5,s.y-s.vy*4.5);
+      g.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},${s.life*.88})`);
+      g.addColorStop(1,`rgba(${Math.min(255,col[0]-50)},${Math.min(255,col[1]-50)},${Math.max(0,col[2]-55)},0)`);
+      ctx.strokeStyle=g;
+      ctx.lineWidth=safe(s.life*1.4*sizeMult);
+      ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-s.vx*4.5,s.y-s.vy*4.5);ctx.stroke();
+      // Fireball: bright head + smoke trail
+      if(s.fireball){
+        // Bright head
+        const hd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,safe(5*s.life));
+        hd.addColorStop(0,`rgba(255,255,255,${s.life})`);
+        hd.addColorStop(.4,`rgba(${col[0]},${col[1]},${col[2]},${s.life*.8})`);
+        hd.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+        ctx.fillStyle=hd;ctx.beginPath();ctx.arc(s.x,s.y,5*s.life,0,Math.PI*2);ctx.fill();
+        // Spawn smoke puff
+        if(Math.random()<.5){s.smokeTrail.push({x:s.x,y:s.y,life:1,vx:rnd(-.3,.3),vy:rnd(-.3,.3)});}
+      }
+      // Terminal flash: when life < 0.15, pop brighter briefly
+      if(s.life<0.15&&s.life>0){
+        const flashOp=(0.15-s.life)/0.15;
+        const fh=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,safe(8*sizeMult));
+        fh.addColorStop(0,`rgba(255,255,255,${flashOp*.85})`);
+        fh.addColorStop(.4,`rgba(${col[0]},${col[1]},${col[2]},${flashOp*.55})`);
+        fh.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+        ctx.fillStyle=fh;ctx.beginPath();ctx.arc(s.x,s.y,8*sizeMult,0,Math.PI*2);ctx.fill();
+      }
+    }
+    // Persistent smoke trail for fireball
+    if(s.fireball&&s.smokeTrail){
+      s.smokeTrail=s.smokeTrail.filter(sm=>sm.life>0.02);
+      s.smokeTrail.forEach(sm=>{
+        sm.x+=sm.vx;sm.y+=sm.vy;sm.life-=.012;
+        const srad=safe((1-sm.life)*12+2);
+        const sg=ctx.createRadialGradient(sm.x,sm.y,0,sm.x,sm.y,srad);
+        sg.addColorStop(0,`rgba(200,200,210,${sm.life*.18})`);
+        sg.addColorStop(1,'rgba(180,180,195,0)');
+        ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sm.x,sm.y,srad,0,Math.PI*2);ctx.fill();
+      });
+    }
+  });
+  ctx.restore();
+}
+
+// Nebula heartbeat + warm nebula color drift + slow drift overlays
+function drawNebulaHeartbeat(){
+  const breath=Math.sin(t*.008);
+  const op=(breath*.5+.5)*.022;
+  const cc=cosmicCurrent();
+  // Drift offsets — each nebula has unique Lissajous wander (~5 min), biased 20% toward current
+  nebPos.slice(0,3).forEach((np,i)=>{
+    const{x,y,layers}=np,l=layers[0];
+    // Lissajous drift, ±15px max, plus subtle current bias
+    const dx=Math.cos(t*.0018+i*2.1)*10+Math.sin(t*.0011+i*1.4)*4+cc.x*3;
+    const dy=Math.sin(t*.0022+i*1.7)*8+Math.cos(t*.0013+i*1.9)*3+cc.y*3;
+    // Internal breathing — per-nebula, offset phase
+    const nebBreath=(Math.sin(t*.011+i*2.3)*.5+.5)*.014;
+    const g=ctx.createRadialGradient(x+dx,y+dy,0,x+dx,y+dy,l.r*.45);
+    g.addColorStop(0,`rgba(${l.cr},${l.cg},${l.cb},${op+nebBreath})`);
+    g.addColorStop(1,`rgba(${l.cr},${l.cg},${l.cb},0)`);
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  });
+  // Warm nebula color drift: amber→rose, ~3.5 min cycle (noticeable in a session)
+  if(nebPos[3]){
+    const drift=Math.sin(t*.0006)*.5+.5;
+    const dr=215,dg=Math.round(108*(1-drift)+78*drift),db=Math.round(38*(1-drift)+115*drift);
+    const nb=nebPos[3];const bOp=(breath*.5+.5)*.028;
+    // Also drifts with current
+    const ddx=Math.cos(t*.0016+5.1)*8+cc.x*3;
+    const ddy=Math.sin(t*.0019+3.2)*6+cc.y*3;
+    const g=ctx.createRadialGradient(nb.x+ddx,nb.y+ddy,0,nb.x+ddx,nb.y+ddy,nb.layers[0].r*.4);
+    g.addColorStop(0,`rgba(${dr},${dg},${db},${bOp})`);g.addColorStop(1,`rgba(${dr},${dg},${db},0)`);
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  }
+}
+
+// Galaxy rotation — faint arm overlays spin over static cores
+function drawGalaxyRotation(){
+  const now=Date.now();
+  galaxyDefs.forEach(gal=>{
+    const{x,y,a,sz,cr,cg,cb,rotSpd}=gal;
+    const rotA=a+now*rotSpd;
+    ctx.save();ctx.translate(x,y);ctx.rotate(rotA);
+    ctx.strokeStyle=`rgba(${cr},${cg},${cb},.055)`;ctx.lineWidth=.35;
+    for(let arm=0;arm<2;arm++){
+      ctx.beginPath();
+      for(let i=0;i<22;i++){
+        const ang=(arm*Math.PI)+(i/22)*Math.PI*1.4,rad=(i/22)*sz;
+        i===0?ctx.moveTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.44):ctx.lineTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.44);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+// ── AIRGLOW — faint green/red atmospheric wash, bottom-heavy ──
+// Like viewing Earth's airglow from orbit; very subtle streaky bands
+function drawAirglow(){
+  // Slow flowing phase — very long cycles, feels like atmosphere breathing
+  const p1=t*.0022,p2=t*.0014;
+  // Two wide horizontal bands with Lissajous undulation
+  // Lower band — greener (oxygen)
+  for(let i=0;i<3;i++){
+    const baseY=H*(.78+i*.06);
+    const waveY=Math.sin(p1+i*2.1)*16+Math.cos(p2+i*.9)*10;
+    const yC=baseY+waveY;
+    const op=.024+Math.sin(p1*.7+i*1.4)*.010;
+    const g=ctx.createLinearGradient(0,yC-H*.08,0,yC+H*.08);
+    g.addColorStop(0,'rgba(85,205,165,0)');
+    g.addColorStop(.5,`rgba(85,205,165,${op})`);
+    g.addColorStop(1,'rgba(85,205,165,0)');
+    ctx.fillStyle=g;ctx.fillRect(0,yC-H*.08,W,H*.16);
+  }
+  // Upper red band — thinner and fainter
+  {
+    const yC=H*.66+Math.sin(p2*.8)*10;
+    const op=.014+Math.sin(p1*.6)*.006;
+    const g=ctx.createLinearGradient(0,yC-H*.06,0,yC+H*.06);
+    g.addColorStop(0,'rgba(220,110,95,0)');
+    g.addColorStop(.5,`rgba(220,110,95,${op})`);
+    g.addColorStop(1,'rgba(220,110,95,0)');
+    ctx.fillStyle=g;ctx.fillRect(0,yC-H*.06,W,H*.12);
+  }
+}
+
+function drawQuasarPulse(){
+  if(!QUASAR_X)return;
+  const phase=Math.sin(t*.00126)*.5+.5; // 90s cycle
+  if(phase<.08)return;
+  const op=phase*phase*.52;
+  const g=ctx.createRadialGradient(QUASAR_X,QUASAR_Y,0,QUASAR_X,QUASAR_Y,safe(15*phase));
+  g.addColorStop(0,`rgba(255,248,220,${op})`);g.addColorStop(.4,`rgba(255,215,110,${op*.55})`);g.addColorStop(1,'rgba(255,195,70,0)');
+  ctx.fillStyle=g;ctx.fillRect(QUASAR_X-18,QUASAR_Y-18,36,36);
+}
+
+// Vignette
+function drawVignette(){const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.32,W/2,H/2,Math.max(W,H)*.80);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.55,'rgba(0,0,0,.04)');g.addColorStop(1,'rgba(0,0,0,.60)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+
+// ── RARE EVENTS ────────────────────────────────────────────
+let rT=Date.now()+rnd(6000,12000),rEv=null,rLife=0,rD={};
+// Super-rare events — separate pool, 2-4 hour intervals. Overlay on top of regular events.
+let srT=Date.now()+rnd(3600000,5400000); // 60-90 min interval → shower roughly hourly (2/3 of pool)
+let srEv=null,srLife=0,srD={};
+// ── SUPER-RARE EVENTS — kilonova, aurora storm ──────────────
+function triggerSuperRare(forced){
+  const pool=['kilonova','meteor_shower','meteor_shower']; // shower slightly more common than kilonova
+  srEv=forced||pool[Math.floor(Math.random()*pool.length)];
+  srLife=1;
+  if(srEv==='kilonova'){
+    // Merger location, away from planets
+    srD.x=rnd(W*.25,W*.72);srD.y=rnd(H*.30,H*.62);
+    srD.phase='spiral'; // spiral → merge → shell → afterglow
+    srD.spiralStart=Date.now();srD.mergeTime=Date.now()+3200; // 3.2s spiral
+    srD.shellTime=srD.mergeTime+20000; // 20s shell
+    srD.afterglowTime=srD.shellTime+90000; // 90s afterglow
+    // Orient Navi toward it — she watches the whole spectacle
+    orientX=srD.x;orientY=srD.y;orientEnd=Date.now()+4500;
+    naviPulse=.55;
+  }
+  if(srEv==='meteor_shower'){
+    // Radiant point — where all meteors appear to emerge from
+    // Position it off-screen upper area so meteors streak down across the view
+    srD.radiantX=rnd(W*.15,W*.85);
+    srD.radiantY=-H*.15; // well above screen
+    srD.startTime=Date.now();
+    srD.endTime=Date.now()+9000; // 9 seconds of shower
+    srD.meteors=[]; // array of active meteors
+    srD.spawnedCount=0;
+    srD.totalMeteors=rnd(14,22); // 14-22 meteors
+    srD.nextSpawn=Date.now()+150;
+    srD.lastMeteorTime=0;
+    // Dust particles that drift after meteors
+    srD.afterDust=[];
+    // Orient Navi upward toward radiant for the whole show (absolute screen coords)
+    orientX=srD.radiantX;
+    orientY=Math.max(srD.radiantY,H*.05); // clamp so head tilt doesn't point off-screen wildly
+    orientEnd=Date.now()+10000;
+    naviPulse=.40;
+  }
+}
+function drawSuperRare(){
+  // Auto-trigger on timer
+  if(Date.now()>=srT&&!srEv){triggerSuperRare();srT=Date.now()+rnd(3600000,5400000);}
+  if(!srEv)return;
+  const now=Date.now();
+  if(srEv==='kilonova'){
+    const cx=srD.x,cy=srD.y;
+    // PHASE 1: SPIRAL (0-3.2s) — two points orbiting inward
+    if(now<srD.mergeTime){
+      const progress=(now-srD.spiralStart)/3200; // 0→1
+      const ease=progress*progress; // accelerate
+      const rad=lerp(32,2,ease); // spiral radius shrinks
+      const angVel=6+ease*48; // angular velocity speeds up as they approach merge
+      const ang=angVel*progress*Math.PI;
+      // Two neutron stars
+      for(let i=0;i<2;i++){
+        const pAng=ang+i*Math.PI;
+        const px=cx+Math.cos(pAng)*rad,py=cy+Math.sin(pAng)*rad;
+        // Core
+        const g=ctx.createRadialGradient(px,py,0,px,py,safe(7));
+        g.addColorStop(0,'rgba(255,255,240,1)');
+        g.addColorStop(.35,'rgba(255,240,180,.85)');
+        g.addColorStop(1,'rgba(255,220,120,0)');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fill();
+        // Bright center
+        ctx.fillStyle='rgba(255,255,255,1)';
+        ctx.beginPath();ctx.arc(px,py,1.6,0,Math.PI*2);ctx.fill();
+        // Spiral trail — faint arc behind
+        ctx.strokeStyle=`rgba(255,230,180,${.4*(1-progress*.5)})`;
+        ctx.lineWidth=1.5;ctx.beginPath();
+        for(let j=0;j<12;j++){
+          const trailP=progress-j*.008;if(trailP<0)break;
+          const trailRad=lerp(32,2,trailP*trailP);
+          const trailAng=(6+trailP*trailP*48)*trailP*Math.PI+i*Math.PI;
+          const tx=cx+Math.cos(trailAng)*trailRad,ty=cy+Math.sin(trailAng)*trailRad;
+          j===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);
+        }
+        ctx.stroke();
+      }
+    }
+    // PHASE 2: MERGE FLASH (at mergeTime, brief intense burst)
+    else if(now<srD.mergeTime+350){
+      const mergeP=(now-srD.mergeTime)/350;
+      const sz=lerp(6,45,mergeP);
+      const op=lerp(1,.4,mergeP);
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,safe(sz));
+      g.addColorStop(0,`rgba(255,255,255,${op})`);
+      g.addColorStop(.3,`rgba(255,248,220,${op*.85})`);
+      g.addColorStop(.6,`rgba(255,210,140,${op*.5})`);
+      g.addColorStop(1,'rgba(255,180,100,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,sz,0,Math.PI*2);ctx.fill();
+      // Startle Navi briefly
+      if(mergeP<.05){startleX=(W/2-cx)*.3;startleY=(H*.44-cy)*.3;startleEnd=now+500;}
+    }
+    // PHASE 3: EXPANDING SHELL (350ms onward → 20s)
+    else if(now<srD.shellTime){
+      const shellP=(now-srD.mergeTime-350)/(srD.shellTime-srD.mergeTime-350); // 0→1
+      const shellRad=shellP*260;
+      // Color evolution: gold → purple → blue
+      let cr,cg,cb;
+      if(shellP<.33){const p=shellP/.33;cr=255;cg=lerp(230,170,p);cb=lerp(140,140,p);} // gold → amber
+      else if(shellP<.66){const p=(shellP-.33)/.33;cr=lerp(255,190,p);cg=lerp(170,110,p);cb=lerp(140,210,p);} // amber → purple
+      else{const p=(shellP-.66)/.34;cr=lerp(190,130,p);cg=lerp(110,150,p);cb=lerp(210,245,p);} // purple → blue
+      const op=lerp(.55,.02,shellP);
+      // Main shell
+      const g=ctx.createRadialGradient(cx,cy,safe(shellRad*.88),cx,cy,safe(shellRad));
+      g.addColorStop(0,`rgba(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)},0)`);
+      g.addColorStop(.7,`rgba(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)},${op})`);
+      g.addColorStop(1,`rgba(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)},0)`);
+      ctx.fillStyle=g;ctx.fillRect(cx-shellRad,cy-shellRad,shellRad*2,shellRad*2);
+      // Persistent core glow fading
+      const coreOp=lerp(.7,.08,shellP);
+      const cg2=ctx.createRadialGradient(cx,cy,0,cx,cy,safe(18));
+      cg2.addColorStop(0,`rgba(255,230,170,${coreOp})`);
+      cg2.addColorStop(1,'rgba(255,180,110,0)');
+      ctx.fillStyle=cg2;ctx.beginPath();ctx.arc(cx,cy,18,0,Math.PI*2);ctx.fill();
+    }
+    // PHASE 4: AFTERGLOW (20s → 90s) — persistent faint glow
+    else if(now<srD.afterglowTime){
+      const afterP=(now-srD.shellTime)/(srD.afterglowTime-srD.shellTime);
+      const op=lerp(.18,.0,afterP);
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,safe(24));
+      g.addColorStop(0,`rgba(180,140,220,${op})`);
+      g.addColorStop(.5,`rgba(130,110,200,${op*.5})`);
+      g.addColorStop(1,'rgba(100,90,180,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,24,0,Math.PI*2);ctx.fill();
+    }
+    else{srEv=null;srLife=0;}
+  }
+  if(srEv==='meteor_shower'){
+    const elapsed=now-srD.startTime;
+    // Spawn phase: 0-9s, meteors emerge from radiant in bursts
+    if(elapsed<9000&&srD.spawnedCount<srD.totalMeteors&&now>=srD.nextSpawn){
+      // Meteor appears near radiant, shoots outward (away from radiant)
+      const ang=rnd(Math.PI*.25,Math.PI*.75); // downward spread (PI/2 = straight down)
+      const baseSpd=rnd(9,16);
+      const vx=Math.cos(ang)*baseSpd;
+      const vy=Math.sin(ang)*baseSpd;
+      // Slight offset from radiant so they fan out
+      const offX=rnd(-W*.05,W*.05),offY=rnd(-H*.02,H*.02);
+      // Color variety — mostly white/blue, some green/gold
+      const rCol=Math.random();
+      const col=rCol<.55?[255,255,255]:rCol<.75?[180,220,255]:rCol<.88?[160,255,180]:[255,230,160];
+      // Size variation — occasional bright
+      const sz=Math.random()<.15?rnd(1.8,2.6):rnd(.8,1.5);
+      srD.meteors.push({
+        x:srD.radiantX+offX,y:srD.radiantY+offY,
+        vx,vy,life:1.0,col,sz,
+        trailLen:rnd(45,80)
+      });
+      srD.spawnedCount++;
+      // Bursty spawning — groups of 2-3 with pauses
+      if(srD.spawnedCount%3===0){
+        srD.nextSpawn=now+rnd(700,1400);
+      }else{
+        srD.nextSpawn=now+rnd(80,250);
+      }
+    }
+    // Update & draw meteors
+    srD.meteors=srD.meteors.filter(m=>m.life>0&&m.y<H+100&&m.x>-100&&m.x<W+100);
+    srD.meteors.forEach(m=>{
+      m.x+=m.vx;m.y+=m.vy;
+      m.life-=.015;
+      if(m.life<=0)return; // skip if just expired
+      // Main streak with color
+      const vMag=Math.sqrt(m.vx*m.vx+m.vy*m.vy);
+      const trailFactor=vMag>0.1?m.trailLen/vMag:0;
+      const tailX=m.x-m.vx*trailFactor;
+      const tailY=m.y-m.vy*trailFactor;
+      const g=ctx.createLinearGradient(m.x,m.y,tailX,tailY);
+      g.addColorStop(0,`rgba(${m.col[0]},${m.col[1]},${m.col[2]},${m.life*.95})`);
+      g.addColorStop(.4,`rgba(${Math.max(0,m.col[0]-30)},${Math.max(0,m.col[1]-30)},${Math.max(0,m.col[2]-40)},${m.life*.55})`);
+      g.addColorStop(1,`rgba(${Math.max(0,m.col[0]-80)},${Math.max(0,m.col[1]-80)},${Math.max(0,m.col[2]-100)},0)`);
+      ctx.strokeStyle=g;
+      ctx.lineWidth=safe(m.life*m.sz*1.4);
+      ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(tailX,tailY);ctx.stroke();
+      // Bright head
+      const headR=safe(m.sz*4*m.life);
+      const hd=ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,headR);
+      hd.addColorStop(0,`rgba(255,255,255,${m.life*.95})`);
+      hd.addColorStop(.35,`rgba(${m.col[0]},${m.col[1]},${m.col[2]},${m.life*.65})`);
+      hd.addColorStop(1,`rgba(${m.col[0]},${m.col[1]},${m.col[2]},0)`);
+      ctx.fillStyle=hd;ctx.beginPath();ctx.arc(m.x,m.y,headR,0,Math.PI*2);ctx.fill();
+      // Emit sparkle dust behind occasionally
+      if(Math.random()<.25){
+        srD.afterDust.push({
+          x:m.x+rnd(-3,3),y:m.y+rnd(-3,3),
+          vx:rnd(-.2,.2),vy:rnd(-.1,.1),
+          life:1,col:m.col
+        });
+      }
+    });
+    // Update & draw after-dust (floating sparkle trail)
+    srD.afterDust=srD.afterDust.filter(d=>d.life>0.01);
+    srD.afterDust.forEach(d=>{
+      d.x+=d.vx;d.y+=d.vy;d.life-=.005;
+      if(d.life<=0.01)return; // skip if just expired
+      const op=d.life*.35;
+      const dustR=safe(1.2*d.life);
+      ctx.fillStyle=`rgba(${d.col[0]},${d.col[1]},${d.col[2]},${op})`;
+      ctx.beginPath();ctx.arc(d.x,d.y,dustR,0,Math.PI*2);ctx.fill();
+    });
+    // Radiant glow — subtle faint patch where meteors emerge (barely visible)
+    if(elapsed<9500&&srD.radiantY>-H*.4){
+      const radGlow=ctx.createRadialGradient(srD.radiantX,srD.radiantY+H*.1,0,srD.radiantX,srD.radiantY+H*.1,safe(H*.18));
+      const rgOp=Math.max(0,.06*(1-elapsed/9000));
+      radGlow.addColorStop(0,`rgba(180,210,255,${rgOp})`);
+      radGlow.addColorStop(.6,`rgba(130,170,220,${rgOp*.3})`);
+      radGlow.addColorStop(1,'rgba(100,140,200,0)');
+      ctx.fillStyle=radGlow;ctx.fillRect(srD.radiantX-H*.2,srD.radiantY,H*.4,H*.4);
+    }
+    // End condition — all meteors gone and past spawn window
+    if(elapsed>11000&&srD.meteors.length===0&&srD.afterDust.length===0){
+      srEv=null;srLife=0;
+    }
+  }
+}
+function triggerRare(){const pool=['bright_star','bright_star','cosmic_ray','nebula_pulse','galaxy','supernova','comet','comet','gravity_lens','gamma_ray_burst','satellite','satellite'];rEv=pool[Math.floor(Math.random()*pool.length)];rLife=1;if(rEv==='bright_star')rD.idx=Math.floor(Math.random()*S3.length);if(rEv==='cosmic_ray'){rD.y1=rnd(H*.05,H*.55);rD.y2=rD.y1+rnd(-H*.12,H*.12);}if(rEv==='nebula_pulse')rD.idx=Math.floor(Math.random()*nebPos.length);if(rEv==='galaxy'){rD.x=rnd(W*.05,W*.42);rD.y=rnd(H*.35,H*.75);rD.a=rnd(0,Math.PI*2);rD.c=[[255,220,180],[180,200,255],[220,180,255]][Math.floor(Math.random()*3)];const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);eventDriftX=(edx/Math.max(edd,1))*12;eventDriftY=(edy/Math.max(edd,1))*9;}if(rEv==='supernova'){rD.x=rnd(W*.08,W*.88);rD.y=rnd(H*.06,H*.75);naviPulse=.7;const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);startleX=-(edx/Math.max(edd,1))*22;startleY=-(edy/Math.max(edd,1))*16;startleEnd=Date.now()+600;setTimeout(()=>{eventDriftX=(edx/Math.max(edd,1))*13;eventDriftY=(edy/Math.max(edd,1))*10;},660);}if(rEv==='comet'){const dir=Math.random()>.5?1:-1;rD.dir=dir;rD.x=dir>0?-80:W+80;rD.y=rnd(H*.06,H*.40);rD.vx=dir*rnd(1.2,2.2);rD.vy=rnd(.15,.55);orientX=rD.x+rD.vx*60;orientY=rD.y;orientEnd=Date.now()+2500;}if(rEv==='satellite'){const dir=Math.random()>.5?1:-1;rD.dir=dir;rD.x=dir>0?-20:W+20;rD.y=rnd(H*.10,H*.65);rD.vx=dir*rnd(.55,.85);rD.vy=rnd(-.08,.08);rD.flarePhase=rnd(0.35,0.65);orientX=rD.x+rD.vx*80;orientY=rD.y;orientEnd=Date.now()+3500;}if(rEv==='gravity_lens'){rD.x=rnd(W*.2,W*.8);rD.y=rnd(H*.1,H*.7);rD.maxR=rnd(50,90);rD.arcs=[0,1,2].map(()=>({a1:rnd(0,.5),a2:rnd(Math.PI*.7,Math.PI*1.7),b1:rnd(Math.PI*1.1,Math.PI*1.4),b2:rnd(Math.PI*2.1,Math.PI*2.7)}));}
+  if(rEv==='gamma_ray_burst'){rD.x=rnd(W*.12,W*.85);rD.y=rnd(H*.08,H*.72);rD.ang=rnd(0,Math.PI*2);naviPulse=.65;const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);startleX=-(edx/Math.max(edd,1))*18;startleY=-(edy/Math.max(edd,1))*13;startleEnd=Date.now()+550;setTimeout(()=>{eventDriftX=(edx/Math.max(edd,1))*14;eventDriftY=(edy/Math.max(edd,1))*10;},620);}}function drawRareEvents(){if(Date.now()>=rT&&!rEv){triggerRare();rT=Date.now()+rnd(5000,10000);}if(!rEv)return;const env=rLife<.10?rLife/.10:rLife>.85?(1-rLife)/.15:1;
+  if(rEv==='bright_star'){rLife-=.016;const s=S3[rD.idx%S3.length],sx=s.x%W,sy=s.y%H;const g=ctx.createRadialGradient(sx,sy,0,sx,sy,safe(22*env));g.addColorStop(0,`rgba(255,255,255,${env*.92})`);g.addColorStop(.25,`rgba(210,228,255,${env*.52})`);g.addColorStop(1,'rgba(180,210,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx,sy,22*env,0,Math.PI*2);ctx.fill();ctx.save();ctx.globalAlpha=env*.55;ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=.5;const fl=28*env;ctx.beginPath();ctx.moveTo(sx-fl,sy);ctx.lineTo(sx+fl,sy);ctx.stroke();ctx.beginPath();ctx.moveTo(sx,sy-fl);ctx.lineTo(sx,sy+fl);ctx.stroke();ctx.restore();}
+  else if(rEv==='cosmic_ray'){rLife-=.055;ctx.save();const g=ctx.createLinearGradient(0,rD.y1,W,rD.y2);g.addColorStop(0,'rgba(220,238,255,0)');g.addColorStop(.18,`rgba(230,245,255,${env*.52})`);g.addColorStop(.5,`rgba(255,255,255,${env*.68})`);g.addColorStop(.82,`rgba(230,245,255,${env*.52})`);g.addColorStop(1,'rgba(220,238,255,0)');ctx.strokeStyle=g;ctx.lineWidth=safe(env*1.8);ctx.beginPath();ctx.moveTo(0,rD.y1);ctx.lineTo(W,rD.y2);ctx.stroke();ctx.restore();}
+  else if(rEv==='nebula_pulse'){rLife-=.005;if(nebPos.length>0){const nb=nebPos[rD.idx%nebPos.length],l=nb.layers[0];const g=ctx.createRadialGradient(nb.x,nb.y,0,nb.x,nb.y,l.r*.55);g.addColorStop(0,`rgba(${l.cr},${l.cg},${l.cb},${env*.20})`);g.addColorStop(.5,`rgba(${l.cr},${l.cg},${l.cb},${env*.09})`);g.addColorStop(1,`rgba(${l.cr},${l.cg},${l.cb},0)`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}}
+  else if(rEv==='galaxy'){rLife-=.0035;const{x,y,a,c}=rD,sz=38;ctx.save();ctx.translate(x,y);ctx.rotate(a);const co=ctx.createRadialGradient(0,0,0,0,0,safe(sz*.35));co.addColorStop(0,`rgba(255,245,235,${env*.55})`);co.addColorStop(.5,`rgba(${c[0]},${c[1]},${c[2]},${env*.28})`);co.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);ctx.fillStyle=co;ctx.beginPath();ctx.ellipse(0,0,sz*.35,sz*.35,0,0,Math.PI*2);ctx.fill();const di=ctx.createRadialGradient(0,0,0,0,0,safe(sz));di.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${env*.22})`);di.addColorStop(.55,`rgba(${c[0]},${c[1]},${c[2]},${env*.10})`);di.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);ctx.fillStyle=di;ctx.beginPath();ctx.ellipse(0,0,sz,sz*.42,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle=`rgba(255,255,255,${env*.10})`;ctx.lineWidth=.4;for(let arm=0;arm<2;arm++){ctx.beginPath();for(let i=0;i<40;i++){const ang=(arm*Math.PI)+(i/40)*Math.PI*1.6,rad=(i/40)*sz;i===0?ctx.moveTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.42):ctx.lineTo(Math.cos(ang)*rad,Math.sin(ang)*rad*.42);}ctx.stroke();}ctx.restore();}
+  else if(rEv==='supernova'){rLife-=.007;ctx.save();const{x,y}=rD,age=1-rLife;[[0,255,240,180],[.12,180,200,255],[.24,140,100,255]].forEach(([delay,rr,rg,rb])=>{const ra=clamp(age-delay,0,1),rad=safe(ra*120*(1+delay*3)),op=env*(1-ra)*.45*(1-delay*.8);if(op<.005)return;ctx.strokeStyle=`rgba(${rr},${rg},${rb},${op})`;ctx.lineWidth=safe((1-ra)*4);ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.stroke();});if(age<.2){const fo=(.2-age)/.2,g=ctx.createRadialGradient(x,y,0,x,y,safe(50*fo));g.addColorStop(0,`rgba(255,255,240,${fo*.88})`);g.addColorStop(.4,`rgba(255,220,120,${fo*.45})`);g.addColorStop(1,'rgba(255,200,80,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,50*fo,0,Math.PI*2);ctx.fill();}ctx.restore();}
+  else if(rEv==='comet'){rLife-=.004;rD.x+=rD.vx;rD.y+=rD.vy;if((rD.dir>0&&rD.x>W+120)||(rD.dir<0&&rD.x<-120))rLife=0;ctx.save();const cx=rD.x,cy=rD.y,tl=200*env,tx=cx-rD.vx/Math.abs(rD.vx)*tl,ty=cy-rD.vy*tl/Math.abs(rD.vx)*.8;const dg=ctx.createLinearGradient(cx,cy,tx,ty);dg.addColorStop(0,`rgba(255,245,210,${env*.35})`);dg.addColorStop(1,'rgba(255,235,180,0)');ctx.strokeStyle=dg;ctx.lineWidth=safe(11*env);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.stroke();const ionX=cx-rD.vx/Math.abs(rD.vx)*tl*.8,ionY=cy-Math.sign(rD.vy)*tl*.14;const ig=ctx.createLinearGradient(cx,cy,ionX,ionY);ig.addColorStop(0,`rgba(180,220,255,${env*.42})`);ig.addColorStop(1,'rgba(120,180,255,0)');ctx.strokeStyle=ig;ctx.lineWidth=safe(4*env);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ionX,ionY);ctx.stroke();const coma=ctx.createRadialGradient(cx,cy,0,cx,cy,safe(13*env));coma.addColorStop(0,`rgba(255,255,240,${env*.82})`);coma.addColorStop(.4,`rgba(220,240,255,${env*.5})`);coma.addColorStop(1,'rgba(180,220,255,0)');ctx.fillStyle=coma;ctx.beginPath();ctx.arc(cx,cy,13*env,0,Math.PI*2);ctx.fill();const nuc=ctx.createRadialGradient(cx,cy,0,cx,cy,safe(4*env));nuc.addColorStop(0,'rgba(255,255,255,1)');nuc.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=nuc;ctx.beginPath();ctx.arc(cx,cy,4*env,0,Math.PI*2);ctx.fill();ctx.restore();}
+  else if(rEv==='satellite'){
+    rLife-=.0022;rD.x+=rD.vx;rD.y+=rD.vy;
+    if((rD.dir>0&&rD.x>W+30)||(rD.dir<0&&rD.x<-30))rLife=0;
+    // Progress through trajectory 0→1
+    const progress=1-rLife;
+    // Flare peak at flarePhase — Gaussian bump
+    const flareDist=Math.abs(progress-rD.flarePhase);
+    const flareEnv=Math.exp(-flareDist*flareDist*90); // sharp peak
+    const baseB=.35,flareB=.92;
+    const brightness=(baseB+flareB*flareEnv)*env;
+    ctx.save();
+    // Point light
+    const pt=ctx.createRadialGradient(rD.x,rD.y,0,rD.x,rD.y,safe(2+flareEnv*6));
+    pt.addColorStop(0,`rgba(255,255,255,${brightness})`);
+    pt.addColorStop(.45,`rgba(220,230,255,${brightness*.5})`);
+    pt.addColorStop(1,'rgba(200,220,255,0)');
+    ctx.fillStyle=pt;ctx.beginPath();ctx.arc(rD.x,rD.y,2+flareEnv*6,0,Math.PI*2);ctx.fill();
+    // Sharp central point
+    ctx.fillStyle=`rgba(255,255,255,${Math.min(1,brightness*1.2)})`;
+    ctx.beginPath();ctx.arc(rD.x,rD.y,.9+flareEnv*.6,0,Math.PI*2);ctx.fill();
+    // During flare peak — diffraction spikes like starlight glint
+    if(flareEnv>.35){
+      ctx.strokeStyle=`rgba(255,255,240,${flareEnv*.55})`;ctx.lineWidth=.4;
+      const spikeLen=6+flareEnv*10;
+      ctx.beginPath();ctx.moveTo(rD.x-spikeLen,rD.y);ctx.lineTo(rD.x+spikeLen,rD.y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(rD.x,rD.y-spikeLen);ctx.lineTo(rD.x,rD.y+spikeLen);ctx.stroke();
+    }
+    ctx.restore();
+  }
+  else if(rEv==='gravity_lens'){rLife-=.004;const{x,y,maxR,arcs}=rD,age=1-rLife,growR=Math.sin(age*Math.PI)*maxR;ctx.save();ctx.globalAlpha=env*.35;ctx.fillStyle='rgba(0,0,0,.8)';ctx.beginPath();ctx.arc(x,y,safe(growR*.18),0,Math.PI*2);ctx.fill();[[`rgba(255,255,200,`,.85,.55],[`rgba(200,230,255,`,1.0,.38],[`rgba(220,200,255,`,1.18,.26]].forEach(([col,rm,op],i)=>{const ar=safe(growR*rm);if(ar<1||op*env<.01)return;const arc=arcs[i];ctx.strokeStyle=`${col}${op*env})`;ctx.lineWidth=safe(2*env);ctx.beginPath();ctx.arc(x,y,ar,arc.a1,arc.a2);ctx.stroke();ctx.beginPath();ctx.arc(x,y,ar,arc.b1,arc.b2);ctx.stroke();});ctx.strokeStyle=`rgba(200,220,255,${env*.08})`;ctx.lineWidth=safe(growR*.25);ctx.beginPath();ctx.arc(x,y,safe(growR*.9),0,Math.PI*2);ctx.stroke();ctx.restore();}
+  else if(rEv==='gamma_ray_burst'){
+    rLife-=.0006; // ~28s total
+    const{x,y,ang}=rD,age=1-rLife;
+    ctx.save();
+    // ── Phase 1: Initial flash (age 0→0.08) ──
+    if(age<.08){
+      const fp=Math.max(0,age<.015?age/.015:1-((age-.015)/.065));
+      if(fp>.01){
+        const fg=ctx.createRadialGradient(x,y,0,x,y,safe(44*fp));
+        fg.addColorStop(0,`rgba(255,255,255,${fp*.96})`);fg.addColorStop(.18,`rgba(220,240,255,${fp*.78})`);fg.addColorStop(.5,`rgba(180,220,255,${fp*.42})`);fg.addColorStop(1,'rgba(120,180,255,0)');
+        ctx.fillStyle=fg;ctx.fillRect(x-48,y-48,96,96);
+        ctx.globalAlpha=fp*.72;ctx.strokeStyle='rgba(255,255,255,.9)';
+        for(let i=0;i<4;i++){const a=i*Math.PI*.5+ang;const sLen=72*fp;ctx.lineWidth=safe(fp*2.2);ctx.beginPath();ctx.moveTo(x+Math.cos(a)*4,y+Math.sin(a)*4);ctx.lineTo(x+Math.cos(a)*sLen,y+Math.sin(a)*sLen);ctx.stroke();}
+        ctx.globalAlpha=1;
+      }
+    }
+    // ── Phase 2: Relativistic jets (age 0.02→0.38) ──
+    if(age>.02&&age<.38){
+      const jAge=clamp((age-.02)/.36,0,1);
+      const jEnv=jAge<.12?jAge/.12:jAge>.68?(1-jAge)/.32:1;
+      const jLen=safe(jAge*115);
+      for(let d=0;d<2;d++){
+        const a=ang+(d?Math.PI:0),ex=x+Math.cos(a)*jLen,ey=y+Math.sin(a)*jLen;
+        const og=ctx.createLinearGradient(x,y,ex,ey);
+        og.addColorStop(0,`rgba(200,232,255,${jEnv*.52})`);og.addColorStop(.35,`rgba(155,208,255,${jEnv*.30})`);og.addColorStop(.72,`rgba(110,175,255,${jEnv*.12})`);og.addColorStop(1,'rgba(80,148,255,0)');
+        ctx.strokeStyle=og;ctx.lineWidth=safe(jEnv*5.5);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();
+        const ic=ctx.createLinearGradient(x,y,ex,ey);
+        ic.addColorStop(0,`rgba(255,255,255,${jEnv*.92})`);ic.addColorStop(.22,`rgba(225,246,255,${jEnv*.72})`);ic.addColorStop(.6,`rgba(178,224,255,${jEnv*.32})`);ic.addColorStop(1,'rgba(140,198,255,0)');
+        ctx.strokeStyle=ic;ctx.lineWidth=safe(jEnv*1.8);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();
+        // Bright knots along jet
+        for(let k=1;k<=3;k++){
+          const kt=k/3.8,kx=x+Math.cos(a)*jLen*kt,ky=y+Math.sin(a)*jLen*kt,kop=jEnv*(1-kt*.45)*.62;
+          if(kop<.01)continue;
+          const kg=ctx.createRadialGradient(kx,ky,0,kx,ky,safe(4.5*jEnv));
+          kg.addColorStop(0,`rgba(255,255,255,${kop})`);kg.addColorStop(1,'rgba(175,215,255,0)');
+          ctx.fillStyle=kg;ctx.beginPath();ctx.arc(kx,ky,4.5*jEnv,0,Math.PI*2);ctx.fill();
+        }
+      }
+    }
+    // ── Phase 3: Afterglow — synchrotron cooling, blue→amber→orange (age 0.10→1.0) ──
+    if(age>.10){
+      const aAge=clamp((age-.10)/.90,0,1);
+      const aEnv=aAge<.06?aAge/.06:aAge>.72?(1-aAge)/.28:1;
+      const aRad=safe(aAge*92+18);
+      // Synchrotron color shift: blue-white → gold → amber-orange
+      const warm=clamp(aAge*2.2-.15,0,1);
+      const cr=Math.round(lerp(185,255,warm)),cg2=Math.round(lerp(210,168,warm)),cb2=Math.round(lerp(255,65,warm));
+      const glow=ctx.createRadialGradient(x,y,0,x,y,aRad);
+      glow.addColorStop(0,`rgba(${cr},${cg2},${cb2},${aEnv*.30})`);glow.addColorStop(.30,`rgba(${cr},${cg2},${cb2},${aEnv*.18})`);glow.addColorStop(.62,`rgba(${cr},${cg2},${cb2},${aEnv*.07})`);glow.addColorStop(1,`rgba(${cr},${cg2},${cb2},0)`);
+      ctx.fillStyle=glow;ctx.fillRect(x-aRad-2,y-aRad-2,aRad*2+4,aRad*2+4);
+      // Concentrated core spot
+      const spot=ctx.createRadialGradient(x,y,0,x,y,safe(aRad*.22));
+      spot.addColorStop(0,`rgba(${cr},${cg2},${cb2},${aEnv*.58})`);spot.addColorStop(1,`rgba(${cr},${cg2},${cb2},0)`);
+      ctx.fillStyle=spot;ctx.fillRect(x-aRad*.24,y-aRad*.24,aRad*.48,aRad*.48);
+    }
+    ctx.restore();
+  }
+  if(rLife<=0)rEv=null;
+}
+
+// ── UFO — realistic, weighted, deliberate ──────────────────
+let ufoTimer=Date.now()+rnd(900000,1200000),ufoActive=false,uD={}; // 15-20 min real time
+// ── UFO — upgraded encounter system ──────────────────────
+function triggerUFO(){
+  ufoActive=true;naviPulse=.45;
+  // Random entry style: side (50%), teleport (15%), descent (20%), rise (15%)
+  const r=Math.random();
+  let entryType='side',startX,startY,vx=0,vy=0;
+  if(r<.50){
+    // Classic side entry
+    const side=Math.random()>.5?1:-1;
+    entryType='side';
+    startX=side>0?-90:W+90;
+    startY=rnd(H*.1,H*.5);
+    vx=side>0?rnd(.8,1.4):rnd(-1.4,-.8);
+  }else if(r<.65){
+    // Teleport — appears anywhere mid-screen with flash
+    entryType='teleport';
+    startX=rnd(W*.20,W*.80);
+    startY=rnd(H*.15,H*.55);
+    vx=rnd(-.3,.3);vy=rnd(-.15,.15);
+  }else if(r<.85){
+    // Descent from top
+    entryType='descent';
+    startX=rnd(W*.25,W*.75);
+    startY=-80;
+    vx=rnd(-.2,.2);vy=rnd(.9,1.3);
+  }else{
+    // Rise from bottom
+    entryType='rise';
+    startX=rnd(W*.25,W*.75);
+    startY=H+80;
+    vx=rnd(-.2,.2);vy=rnd(-1.3,-.9);
+  }
+  uD={
+    x:startX,y:startY,vx,vy,
+    state:'entry',stTimer:50,
+    entryType,
+    blinkT:0,discRot:0,beamAngle:0,bank:0,
+    trail:[],beamParticles:[],zigTimer:rnd(45,80),
+    departX:0,departY:0,shockRad:0,shockOp:0,
+    // Communication phase data
+    commPhase:0, // 0 through ~120 frames
+    commPattern:[ // color sequence — magenta, cyan, gold, emerald, violet, white
+      [255,100,220],[100,220,255],[255,220,100],[100,255,160],[200,120,255],[255,255,255]
+    ],
+    naviResponseLog:[], // track Navi's pulse response for visual linkage
+    // Plasma tendrils
+    plasmaArcs:[],
+    lastPlasmaTime:0,
+    // Size/scale for parallax
+    scaleMult:entryType==='teleport'?0.1:0.72,
+    targetScale:1.0,
+    // Exit mode
+    exitMode:null, // set at end of hover/comm: 'warp' or 'cloak'
+    // Debris particles (set on exit)
+    debrisParticles:[],
+    // Reactive behavior — adjust hover duration based on Navi mood
+    moodReactivity:0, // set when entering hover
+  };
+}
+
+function drawUFO(naviX,naviY){
+  if(!ufoActive)return;
+  const now=Date.now();
+  uD.blinkT+=.12;uD.discRot+=.006;uD.beamAngle+=.018;uD.stTimer--;
+  // ── STATE: entry (varies by entryType) ──
+  if(uD.state==='entry'){
+    if(uD.entryType==='teleport'){
+      // Flash pop-in, hold, then start cruise
+      uD.x+=uD.vx;uD.y+=uD.vy;
+      uD.scaleMult=lerp(uD.scaleMult,1.0,.09);
+    }else if(uD.entryType==='descent'||uD.entryType==='rise'){
+      uD.x+=uD.vx;uD.y+=uD.vy;
+      uD.scaleMult=lerp(uD.scaleMult,1.0,.055);
+    }else{
+      // Classic side
+      uD.x+=uD.vx;uD.y+=uD.vy;
+      uD.scaleMult=lerp(uD.scaleMult,1.0,.055);
+    }
+    if(uD.stTimer<=0){uD.state='cruise';uD.stTimer=rnd(200,300);}
+  }
+  else if(uD.state==='cruise'){
+    const dx=naviX-uD.x,dy=naviY-uD.y,d=Math.sqrt(dx*dx+dy*dy);
+    uD.vx+=(dx/Math.max(d,1)*1.2-uD.vx)*.035;
+    uD.vy+=(dy/Math.max(d,1)*.6-uD.vy)*.02;
+    uD.x+=uD.vx;uD.y+=uD.vy;
+    uD.bank=lerp(uD.bank,clamp(uD.vx*.18,-.28,.28),.06);
+    uD.zigTimer--;if(uD.zigTimer<=0){uD.vy=rnd(-.6,.6);uD.zigTimer=rnd(40,80);}
+    uD.scaleMult=lerp(uD.scaleMult,1.0,.04);
+    if(uD.stTimer<=0||d<140){
+      uD.state='hover';uD.stTimer=rnd(180,250);uD.vx*=.04;uD.vy*=.04;
+      // Reactive behavior — mood affects hover length
+      const m=mood;
+      if(m==='happy'||m==='listening'){uD.moodReactivity=1.4;uD.stTimer*=1.4;}
+      else if(m==='alert'){uD.moodReactivity=.75;uD.stTimer*=.75;}
+      else if(m==='angry'){uD.moodReactivity=.5;uD.stTimer*=.5;}
+      else uD.moodReactivity=1.0;
+    }
+  }
+  else if(uD.state==='hover'){
+    uD.vx*=.88;uD.vy*=.88;uD.bank=lerp(uD.bank,0,.08);
+    if(uD.stTimer<=0){
+      // Transition to COMMUNICATION phase
+      uD.state='comm';uD.stTimer=120;uD.commPhase=0;
+    }
+  }
+  else if(uD.state==='comm'){
+    // Communication phase — nav lights cycle colors, Navi responds
+    uD.vx*=.95;uD.vy*=.95;
+    uD.commPhase++;
+    // Every 20 frames (333ms), pulse Navi to "respond" to UFO's color signal
+    if(uD.commPhase%20===10&&uD.commPhase<110){
+      const colIdx=Math.floor(uD.commPhase/20);
+      if(uD.commPattern[colIdx]){
+        naviPulse=Math.max(naviPulse,.55);
+        uD.naviResponseLog.push({time:now,col:uD.commPattern[colIdx]});
+      }
+    }
+    uD.naviResponseLog=uD.naviResponseLog.filter(r=>now-r.time<1000);
+    if(uD.stTimer<=0){
+      // Decide exit: 30% cloak, 70% warp-flee
+      uD.exitMode=Math.random()<.30?'cloak':'warp';
+      if(uD.exitMode==='warp'){
+        // Original warp-out with shockwave and spark burst
+        for(let i=0;i<20;i++){
+          const a=rnd(0,Math.PI*2),sp=rnd(1.5,5.5);
+          sparks.push({x:naviX,y:naviY,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:rnd(.008,.018),sz:safe(rnd(2,4.5)),r:255,g:218,b:130});
+        }
+        naviPulse=.9;uD.state='flee';
+        const fx=Math.random()>.5?W+300:-300,fy=rnd(0,H),dx=fx-uD.x,dy=fy-uD.y,d=Math.sqrt(dx*dx+dy*dy);
+        uD.vx=dx/d*42;uD.vy=dy/d*42;
+        uD.departX=uD.x;uD.departY=uD.y;uD.shockRad=0;uD.shockOp=1.2;uD.stTimer=28;
+      }else{
+        // Cloaking fade
+        uD.state='cloak';uD.stTimer=120; // 2s cloak
+        uD.departX=uD.x;uD.departY=uD.y;
+      }
+    }
+  }
+  else if(uD.state==='flee'){
+    uD.x+=uD.vx;uD.y+=uD.vy;
+    uD.scaleMult=lerp(uD.scaleMult,1.15,.1); // slight grow into frame then shrink
+    if(uD.shockOp>0){uD.shockRad+=7;uD.shockOp-=.03;[1,.65,.38].forEach((sc,i)=>{const op=uD.shockOp*sc;if(op<.01)return;ctx.strokeStyle=`rgba(100,255,200,${op})`;ctx.lineWidth=safe(uD.shockOp*(3.5-i));ctx.beginPath();ctx.arc(uD.departX,uD.departY,safe(uD.shockRad*(1+i*.28)),0,Math.PI*2);ctx.stroke();});if(uD.shockRad<35){const fo=1-uD.shockRad/35,g=ctx.createRadialGradient(uD.departX,uD.departY,0,uD.departX,uD.departY,safe(48*fo));g.addColorStop(0,`rgba(255,255,255,${fo*.92})`);g.addColorStop(.4,`rgba(100,255,200,${fo*.55})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(uD.departX-52,uD.departY-52,104,104);}}
+    if(uD.stTimer<=0||uD.x<-300||uD.x>W+300){
+      // Spawn debris particles before finishing
+      for(let i=0;i<2;i++){
+        uD.debrisParticles.push({
+          x:uD.departX+rnd(-20,20),y:uD.departY+rnd(-20,20),
+          vx:rnd(-.15,.15),vy:rnd(-.1,.1),
+          life:1,r:80,g:255,b:200
+        });
+      }
+      uD.state='debris';uD.stTimer=180; // 3s debris fade
+    }
+  }
+  else if(uD.state==='cloak'){
+    // Fade to invisible while position stays, stars behind glitch
+    uD.x+=uD.vx*.3;uD.y+=uD.vy*.3;
+    if(uD.stTimer<=0){
+      for(let i=0;i<3;i++){
+        uD.debrisParticles.push({
+          x:uD.departX+rnd(-25,25),y:uD.departY+rnd(-25,25),
+          vx:rnd(-.2,.2),vy:rnd(-.15,.15),
+          life:1,r:150,g:220,b:255
+        });
+      }
+      uD.state='debris';uD.stTimer=180;
+    }
+  }
+  else if(uD.state==='debris'){
+    // Debris particles drift and fade. UFO hull not drawn.
+    uD.debrisParticles=uD.debrisParticles.filter(p=>p.life>0.02);
+    uD.debrisParticles.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.life-=.006;
+      const rad=safe((1.5+p.life*2.5));
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rad*3);
+      g.addColorStop(0,`rgba(${p.r},${p.g},${p.b},${p.life*.75})`);
+      g.addColorStop(.4,`rgba(${p.r},${p.g},${p.b},${p.life*.35})`);
+      g.addColorStop(1,`rgba(${p.r},${p.g},${p.b},0)`);
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,rad*3,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=`rgba(255,255,255,${p.life*.85})`;
+      ctx.beginPath();ctx.arc(p.x,p.y,1.2*p.life,0,Math.PI*2);ctx.fill();
+    });
+    if(uD.stTimer<=0||uD.debrisParticles.length===0){
+      ufoActive=false;ufoTimer=Date.now()+rnd(900000,1200000);
+      uD.beamParticles=[];S3.forEach(s=>s.fl=1);S2.forEach(s=>s.fl=1);return;
+    }
+    return; // no hull rendering during debris
+  }
+
+  if(uD.state!=='flee'&&uD.state!=='cloak'){
+    S3.forEach(s=>{const dx=(s.x%W)-uD.x,dy=(s.y%H)-uD.y;s.fl=Math.sqrt(dx*dx+dy*dy)<170?(.3+Math.random()*.7):1;});
+    S2.forEach(s=>{const dx=(s.x%W)-uD.x,dy=(s.y%H)-uD.y;s.fl=Math.sqrt(dx*dx+dy*dy)<110?(.4+Math.random()*.6):1;});
+  }
+  if(uD.state==='cruise'||uD.state==='flee')uD.trail.push({x:uD.x,y:uD.y,life:1});
+  uD.trail=uD.trail.filter(p=>p.life>.04);
+  uD.trail.forEach(p=>{p.life-=uD.state==='flee'?.09:.02;const rad=safe((uD.state==='flee'?18:4)*p.life);const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rad);g.addColorStop(0,`rgba(80,255,200,${p.life*.45})`);g.addColorStop(1,'rgba(40,180,120,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,rad,0,Math.PI*2);ctx.fill();});
+
+  const ux=uD.x,uy=uD.y;
+  // Alpha calculations for each state
+  let fadeIn=1,fadeOut=1;
+  if(uD.state==='entry'){
+    if(uD.entryType==='teleport')fadeIn=1-uD.stTimer/50; // quick flash-in
+    else fadeIn=1-uD.stTimer/50;
+  }
+  if(uD.state==='flee')fadeOut=clamp(uD.stTimer/28,0,1);
+  let cloakGlitchX=0,cloakGlitchY=0;
+  if(uD.state==='cloak'){
+    const cp=1-(uD.stTimer/120);
+    fadeOut=1-cp*cp; // ease-out fade
+    // Glitch effect — tiny position jitter during cloak
+    cloakGlitchX=Math.sin(t*8+cp*20)*cp*3;
+    cloakGlitchY=Math.cos(t*6+cp*15)*cp*2;
+  }
+  const alpha=fadeIn*fadeOut;
+
+  // Teleport entry — bright flash on arrival
+  if(uD.state==='entry'&&uD.entryType==='teleport'){
+    const tf=uD.stTimer/50;
+    if(tf>.6){
+      const fp=(tf-.6)/.4;
+      const fg=ctx.createRadialGradient(ux,uy,0,ux,uy,safe(120*fp));
+      fg.addColorStop(0,`rgba(255,255,255,${fp*.95})`);
+      fg.addColorStop(.3,`rgba(180,255,230,${fp*.55})`);
+      fg.addColorStop(.7,`rgba(80,200,160,${fp*.22})`);
+      fg.addColorStop(1,'rgba(40,140,110,0)');
+      ctx.fillStyle=fg;ctx.beginPath();ctx.arc(ux,uy,120*fp,0,Math.PI*2);ctx.fill();
+    }
+  }
+  // Classic warp-in collapsing rings — only for non-teleport
+  if(uD.state==='entry'&&uD.entryType!=='teleport'){
+    const wf=uD.stTimer/50;
+    [90,62,40].forEach((sz,i)=>{
+      const r=safe(wf*sz),op=(1-wf*.2)*(1-i*.22)*.72;
+      ctx.strokeStyle=`rgba(${i===0?'80,240,200':i===1?'150,255,220':'220,255,245'},${op})`;
+      ctx.lineWidth=safe((1-wf*.4)*(3.5-i));
+      ctx.beginPath();ctx.arc(ux,uy,r,0,Math.PI*2);ctx.stroke();
+    });
+    if(wf<.32){
+      const f=(.32-wf)/.32;
+      const g=ctx.createRadialGradient(ux,uy,0,ux,uy,safe(38*f));
+      g.addColorStop(0,`rgba(255,255,255,${f*.85})`);g.addColorStop(.45,`rgba(80,255,210,${f*.5})`);g.addColorStop(1,'rgba(30,200,160,0)');
+      ctx.fillStyle=g;ctx.fillRect(ux-42,uy-42,84,84);
+    }
+  }
+  // Cloak glitch rings — subtle displacement rings
+  if(uD.state==='cloak'){
+    const cp=1-(uD.stTimer/120);
+    for(let gr=0;gr<3;gr++){
+      const glitchR=safe(20+cp*60+gr*15);
+      const gop=(1-cp)*(.35-gr*.08);
+      ctx.strokeStyle=`rgba(140,220,255,${gop})`;
+      ctx.lineWidth=safe(.8-gr*.15);
+      ctx.beginPath();ctx.arc(ux,uy,glitchR,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  // Ambient teal glow
+  const tg=ctx.createRadialGradient(ux,uy,0,ux,uy,safe(160*alpha*uD.scaleMult));
+  tg.addColorStop(0,`rgba(40,200,165,${alpha*.065})`);
+  tg.addColorStop(.5,`rgba(25,165,135,${alpha*.03})`);
+  tg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=tg;ctx.fillRect(ux-165,uy-165,330,330);
+
+  ctx.save();ctx.translate(ux+cloakGlitchX,uy+cloakGlitchY);
+  // ── Apply size scale (parallax effect) ──
+  ctx.scale(uD.scaleMult,uD.scaleMult);
+  // Banking tilt
+  ctx.scale(1, 1+Math.sin(uD.bank)*.11);
+  ctx.globalAlpha=alpha;
+
+  // Self-shadow below craft
+  const shad=ctx.createRadialGradient(0,22,0,0,22,safe(32));
+  shad.addColorStop(0,'rgba(0,0,0,.24)');shad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=shad;ctx.beginPath();ctx.ellipse(0,22,32,9,0,0,Math.PI*2);ctx.fill();
+
+  // Underbelly
+  const belly=ctx.createRadialGradient(0,7,0,0,9,safe(32));
+  belly.addColorStop(0,'rgba(165,240,220,.62)');belly.addColorStop(.32,'rgba(55,195,168,.40)');belly.addColorStop(.70,'rgba(18,148,122,.18)');belly.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=belly;ctx.beginPath();ctx.ellipse(0,7,32,16,0,0,Math.PI*2);ctx.fill();
+
+  // ── NEW: PLASMA DISCHARGE — electric arcs from engine core ──
+  // Spawns arcs roughly 2-3 per second during cruise/hover/comm
+  if((uD.state==='cruise'||uD.state==='hover'||uD.state==='comm')&&now-uD.lastPlasmaTime>rnd(300,500)){
+    uD.lastPlasmaTime=now;
+    // Generate zig-zag arc from engine center outward
+    const arcStart=rnd(0,Math.PI*2);
+    const arcLen=rnd(14,24);
+    const segments=4;
+    const pts=[];
+    for(let seg=0;seg<=segments;seg++){
+      const p=seg/segments;
+      const baseAng=arcStart+Math.sin(p*Math.PI*1.5)*.4;
+      const dist=p*arcLen;
+      pts.push([Math.cos(baseAng)*dist+rnd(-2.5,2.5),Math.sin(baseAng)*dist*.45+2+rnd(-1.5,1.5)]);
+    }
+    uD.plasmaArcs.push({pts,life:1});
+  }
+  uD.plasmaArcs=uD.plasmaArcs.filter(a=>a.life>0);
+  uD.plasmaArcs.forEach(a=>{
+    a.life-=.11;
+    ctx.save();
+    ctx.strokeStyle=`rgba(100,255,220,${a.life*.85})`;
+    ctx.lineWidth=safe(a.life*1.2);
+    ctx.shadowColor='rgb(80,220,180)';ctx.shadowBlur=6;
+    ctx.beginPath();
+    a.pts.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+    ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.restore();
+  });
+
+  // Scanning beam
+  if(uD.state==='hover'||uD.state==='cruise'||uD.state==='comm'){
+    const bAng=(uD.state==='hover'||uD.state==='comm')?Math.atan2(naviY-uy,naviX-ux)+Math.PI/2:uD.beamAngle;
+    ctx.save();ctx.rotate(bAng);
+    const bm=ctx.createLinearGradient(0,5,0,68);
+    bm.addColorStop(0,'rgba(100,245,218,.35)');bm.addColorStop(.5,'rgba(55,195,170,.15)');bm.addColorStop(1,'rgba(22,152,128,0)');
+    ctx.fillStyle=bm;ctx.beginPath();ctx.moveTo(-7,5);ctx.lineTo(-18,68);ctx.lineTo(18,68);ctx.lineTo(7,5);ctx.closePath();ctx.fill();
+    const ib=ctx.createLinearGradient(0,5,0,55);
+    ib.addColorStop(0,'rgba(220,255,248,.72)');ib.addColorStop(.45,'rgba(120,245,218,.38)');ib.addColorStop(1,'rgba(70,210,185,0)');
+    ctx.fillStyle=ib;ctx.beginPath();ctx.moveTo(-2,5);ctx.lineTo(-7,55);ctx.lineTo(7,55);ctx.lineTo(2,5);ctx.closePath();ctx.fill();
+    if((uD.state==='hover'||uD.state==='comm')&&Math.random()<.38){uD.beamParticles.push({rx:rnd(-8,8),ry:rnd(10,58),life:1,spd:rnd(.5,1.6)});}
+    uD.beamParticles=uD.beamParticles.filter(p=>p.life>.05&&p.ry>2);
+    uD.beamParticles.forEach(p=>{p.ry-=p.spd;p.life-=.018;ctx.globalAlpha=p.life*alpha*.70;ctx.fillStyle='rgba(180,255,235,1)';ctx.beginPath();ctx.arc(p.rx,p.ry,safe(1.5*p.life),0,Math.PI*2);ctx.fill();});
+    ctx.globalAlpha=alpha;
+    ctx.rotate(uD.beamAngle*2+Math.PI*.45);const sb=ctx.createLinearGradient(0,5,0,38);
+    sb.addColorStop(0,'rgba(80,195,255,.25)');sb.addColorStop(1,'rgba(40,145,200,0)');
+    ctx.fillStyle=sb;ctx.beginPath();ctx.moveTo(-2,5);ctx.lineTo(-8,38);ctx.lineTo(8,38);ctx.lineTo(2,5);ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+
+  // Hull
+  ctx.fillStyle='rgba(28,38,30,.98)';ctx.beginPath();ctx.ellipse(0,3,32,8.2,0,0,Math.PI*2);ctx.fill();
+  const md=ctx.createLinearGradient(-30,-2,30,4);
+  md.addColorStop(0,'rgb(38,44,40)');md.addColorStop(.18,'rgb(88,102,92)');md.addColorStop(.42,'rgb(148,165,152)');md.addColorStop(.58,'rgb(168,185,172)');md.addColorStop(.82,'rgb(85,98,88)');md.addColorStop(1,'rgb(35,42,38)');
+  ctx.fillStyle=md;ctx.beginPath();ctx.ellipse(0,0,30,7.5,0,0,Math.PI*2);ctx.fill();
+  ctx.save();ctx.rotate(uD.discRot);ctx.strokeStyle='rgba(50,62,52,.65)';ctx.lineWidth=.5;
+  for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2;ctx.beginPath();ctx.moveTo(Math.cos(a)*9,Math.sin(a)*2.3);ctx.lineTo(Math.cos(a)*27,Math.sin(a)*6.8);ctx.stroke();}
+  ctx.restore();
+  ctx.strokeStyle='rgba(55,68,58,.72)';ctx.lineWidth=.6;
+  ctx.beginPath();ctx.ellipse(0,0,24,6,0,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(0,0,16,4,0,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(0,0,9,2.2,0,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(175,195,178,.32)';ctx.lineWidth=.9;
+  ctx.beginPath();ctx.ellipse(0,0,30,7.5,0,0,Math.PI*2);ctx.stroke();
+
+  // Engine core
+  const ec=ctx.createRadialGradient(0,2,2,0,2,12);
+  ec.addColorStop(0,'rgba(45,225,188,.25)');ec.addColorStop(.5,'rgba(32,185,155,.50)');ec.addColorStop(.88,'rgba(15,142,118,.28)');ec.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=ec;ctx.beginPath();ctx.arc(0,2,12,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=`rgba(60,245,200,${.60+Math.sin(uD.blinkT*2)*.40})`;ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.arc(0,2,6.2,0,Math.PI*2);ctx.stroke();
+
+  // Dome with alien silhouette
+  ctx.save();ctx.beginPath();ctx.ellipse(0,-4,11,9,0,Math.PI,0);ctx.clip();
+  const dome=ctx.createRadialGradient(-3,-8,0,0,-3,14);
+  dome.addColorStop(0,'rgba(185,230,248,.88)');dome.addColorStop(.3,'rgba(100,188,215,.72)');dome.addColorStop(.65,'rgba(42,120,158,.55)');dome.addColorStop(1,'rgba(12,58,98,.28)');
+  ctx.fillStyle=dome;ctx.fillRect(-13,-14,26,14);
+  // ── NEW: ALIEN SILHOUETTE ──
+  // Subtle shadow shape inside the dome — a head/upper body form that sways slightly
+  const sway=Math.sin(t*.9)*1.2;
+  const silX=sway,silY=-6;
+  // Body (pear-shaped)
+  ctx.fillStyle='rgba(8,22,38,.55)';
+  ctx.beginPath();ctx.ellipse(silX,silY+1.5,2.8,2.2,0,0,Math.PI*2);ctx.fill();
+  // Head (round, slightly larger than typical gray alien)
+  ctx.beginPath();ctx.ellipse(silX,silY-2,2.4,2.8,0,0,Math.PI*2);ctx.fill();
+  // Occasional eye shimmer
+  if(Math.sin(t*1.7)>0.92){
+    ctx.fillStyle='rgba(100,220,240,.85)';
+    ctx.beginPath();ctx.arc(silX-.7,silY-2.2,.35,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(silX+.7,silY-2.2,.35,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle='rgba(155,215,248,.50)';ctx.lineWidth=.8;
+  ctx.beginPath();ctx.ellipse(0,-4,11,9,0,Math.PI,0);ctx.stroke();
+  ctx.fillStyle='rgba(40,110,175,.12)';
+  ctx.beginPath();ctx.ellipse(0,-6,6,4,0,Math.PI,0);ctx.fill();
+
+  // Nav lights with comm phase color cycling
+  let navLights;
+  if(uD.state==='comm'){
+    // Communication phase — ALL lights cycle through pattern together
+    const colIdx=Math.floor(uD.commPhase/20)%uD.commPattern.length;
+    const nextIdx=(colIdx+1)%uD.commPattern.length;
+    const blend=(uD.commPhase%20)/20;
+    const cur=uD.commPattern[colIdx],nxt=uD.commPattern[nextIdx];
+    const br=Math.round(lerp(cur[0],nxt[0],blend));
+    const bg=Math.round(lerp(cur[1],nxt[1],blend));
+    const bb=Math.round(lerp(cur[2],nxt[2],blend));
+    navLights=[
+      {la:Math.PI*1.12,r:br,g:bg,b:bb,flash:false,comm:true},
+      {la:Math.PI*1.88,r:br,g:bg,b:bb,flash:false,comm:true},
+      {la:Math.PI*.5,r:br,g:bg,b:bb,flash:false,comm:true},
+      {la:Math.PI*1.5,r:br,g:bg,b:bb,flash:false,comm:true},
+    ];
+  }else if(uD.state==='hover'){
+    // Cycling light colors during hover — each light phases through rainbow slowly
+    const hueT=uD.blinkT*.15;
+    navLights=[0,1,2,3].map(i=>{
+      const h=(hueT+i*1.6)%6;
+      // Rainbow hue interpolation
+      let r,g,b;
+      if(h<1){r=255;g=Math.round(h*255);b=0;}
+      else if(h<2){r=Math.round((2-h)*255);g=255;b=0;}
+      else if(h<3){r=0;g=255;b=Math.round((h-2)*255);}
+      else if(h<4){r=0;g=Math.round((4-h)*255);b=255;}
+      else if(h<5){r=Math.round((h-4)*255);g=0;b=255;}
+      else{r=255;g=0;b=Math.round((6-h)*255);}
+      const angles=[Math.PI*1.12,Math.PI*1.88,Math.PI*.5,Math.PI*1.5];
+      return{la:angles[i],r,g,b,flash:false,comm:false};
+    });
+  }else{
+    // Normal: realistic aircraft nav lights
+    navLights=[
+      {la:Math.PI*1.12,r:220,g:50,b:50,flash:false},
+      {la:Math.PI*1.88,r:50,g:205,b:80,flash:false},
+      {la:Math.PI*.5,r:255,g:255,b:255,flash:true},
+      {la:Math.PI*1.5,r:255,g:255,b:255,flash:true},
+    ];
+  }
+  navLights.forEach(({la,r:lr,g:lg,b:lb,flash,comm})=>{
+    const lx=Math.cos(la+uD.discRot)*28,ly=Math.sin(la+uD.discRot)*7;
+    let lop;
+    if(flash){
+      const strobeCycle=((uD.blinkT*.12)%1);
+      lop=strobeCycle<.08?(.9-(strobeCycle/.08)*.8):0.04;
+    }else if(comm){
+      // Comm: all lights bright and pulse together with signal
+      lop=.75+Math.sin(uD.blinkT*1.2)*.22;
+    }else{
+      lop=.55+Math.sin(uD.blinkT*.8+(la))*.2;
+    }
+    lop*=alpha;
+    ctx.fillStyle=`rgba(${lr},${lg},${lb},${lop})`;
+    ctx.beginPath();ctx.arc(lx,ly,flash?2.0:(comm?2.5:1.8),0,Math.PI*2);ctx.fill();
+    if(lop>.25){
+      const lg2=ctx.createRadialGradient(lx,ly,0,lx,ly,safe(comm?8:5));
+      lg2.addColorStop(0,`rgba(${lr},${lg},${lb},${lop*.85})`);
+      lg2.addColorStop(1,`rgba(${lr},${lg},${lb},0)`);
+      ctx.fillStyle=lg2;ctx.beginPath();ctx.arc(lx,ly,comm?8:5,0,Math.PI*2);ctx.fill();
+    }
+  });
+  // Bottom teal running lights
+  for(let i=0;i<6;i++){
+    const la=(i/6)*Math.PI*2+uD.discRot*.8,lx=Math.cos(la)*14,ly=4+Math.sin(la)*3;
+    ctx.fillStyle=`rgba(48,240,195,${(.38+Math.sin(uD.blinkT*1.9+i*1.05)*.42)*alpha})`;
+    ctx.beginPath();ctx.arc(lx,ly,1.4,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── ORB ────────────────────────────────────────────────────
+// Asymmetric breathing: slow inhale (~60%), faster exhale (~40%), organic feel
+function breathRhythm(){
+  const cycle=(t*.215)%(Math.PI*2); // base period
+  // Shape the sin to spend more time in inhale
+  const shaped=cycle<Math.PI*1.2 ? Math.sin(cycle/1.2*Math.PI/2) : -Math.sin((cycle-Math.PI*1.2)/.8*Math.PI/2);
+  return shaped;
+}
+function drawOrb(ox,oy,r,g,b){
+  const pulse=safe(.84+breathRhythm()*.16),boost=safe((1+speed*9+naviPulse*.9)*naviBright);
+  const neb=nebPos[0]?nebPos[0].layers[0]:null;
+  const tR=neb?Math.round(r*.97+neb.cr*.03):r,tG=neb?Math.round(g*.97+neb.cg*.03):g,tB=neb?Math.round(b*.97+neb.cb*.03):b;
+  let gr;
+  // LAYER 1 — outermost ambient glow
+  gr=ctx.createRadialGradient(ox,oy,0,ox,oy,safe(165*pulse));gr.addColorStop(0,`rgba(${tR},${tG},${tB},${.13*boost})`);gr.addColorStop(.28,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(ox,oy,165*pulse,0,Math.PI*2);ctx.fill();
+  // LAYER 2 — mid color aura
+  gr=ctx.createRadialGradient(ox,oy,0,ox,oy,safe(74*pulse));gr.addColorStop(0,`rgba(${r},${g},${b},${.56*boost})`);gr.addColorStop(.42,`rgba(${r},${g},${b},.22)`);gr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(ox,oy,74*pulse,0,Math.PI*2);ctx.fill();
+  // LAYER 3 — bright core
+  gr=ctx.createRadialGradient(ox,oy,0,ox,oy,safe(38*pulse));gr.addColorStop(0,'rgba(255,255,255,.95)');gr.addColorStop(.20,`rgba(${clamp(r+100,0,255)},${clamp(g+100,0,255)},${clamp(b+100,0,255)},.88)`);gr.addColorStop(.58,`rgba(${r},${g},${b},.5)`);gr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(ox,oy,38*pulse,0,Math.PI*2);ctx.fill();
+  // ── NEW: IRIDESCENT SHIMMER — soap-bubble color shift on surface ──
+  // Two offset angular gradient patches that slowly rotate, tinting the orb with rainbow sheen
+  {
+    const iriT=t*.08;
+    const iriRad=safe(32*pulse);
+    // Patch 1: magenta/cyan on one side
+    const iri1X=ox+Math.cos(iriT)*10*pulse,iri1Y=oy+Math.sin(iriT)*6*pulse;
+    const ig1=ctx.createRadialGradient(iri1X,iri1Y,0,iri1X,iri1Y,iriRad);
+    ig1.addColorStop(0,`rgba(255,110,230,${.16*pulse})`);
+    ig1.addColorStop(.5,`rgba(130,180,255,${.08*pulse})`);
+    ig1.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=ig1;ctx.beginPath();ctx.arc(ox,oy,iriRad,0,Math.PI*2);ctx.fill();
+    // Patch 2: gold/violet on opposite side, different frequency
+    const iri2X=ox+Math.cos(iriT*1.37+2.1)*9*pulse,iri2Y=oy+Math.sin(iriT*1.37+2.1)*5*pulse;
+    const ig2=ctx.createRadialGradient(iri2X,iri2Y,0,iri2X,iri2Y,iriRad);
+    ig2.addColorStop(0,`rgba(255,220,120,${.12*pulse})`);
+    ig2.addColorStop(.5,`rgba(185,130,255,${.07*pulse})`);
+    ig2.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=ig2;ctx.beginPath();ctx.arc(ox,oy,iriRad,0,Math.PI*2);ctx.fill();
+  }
+  // Internal shimmer (original)
+  const sAng=t*.18,sx=ox+Math.cos(sAng)*7*pulse,sy=oy+Math.sin(sAng)*4*pulse;
+  const shim=ctx.createRadialGradient(sx,sy,0,ox,oy,safe(22*pulse));shim.addColorStop(0,`rgba(255,255,255,${.28*pulse})`);shim.addColorStop(.45,`rgba(${r},${g},${b},${.10*pulse})`);shim.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=shim;ctx.beginPath();ctx.arc(ox,oy,22*pulse,0,Math.PI*2);ctx.fill();
+  // Rune spokes (softened opacity .18→.12, hex .10→.07)
+  const orbRot=t*Math.max(0.06,flapMult)*.28;
+  const orbRot2=t*Math.max(0.06,flapMult)*.56;
+  ctx.save();ctx.translate(ox,oy);ctx.rotate(orbRot);ctx.strokeStyle=`rgba(${r},${g},${b},.12)`;ctx.lineWidth=.5;for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;ctx.beginPath();ctx.moveTo(Math.cos(a)*safe(5*pulse),Math.sin(a)*safe(5*pulse));ctx.lineTo(Math.cos(a)*safe(14*pulse),Math.sin(a)*safe(14*pulse));ctx.stroke();}ctx.rotate(-orbRot2);ctx.strokeStyle=`rgba(${r},${g},${b},.07)`;ctx.beginPath();for(let i=0;i<=6;i++){const a=(i/6)*Math.PI*2,or=safe(19*pulse);i===0?ctx.moveTo(Math.cos(a)*or,Math.sin(a)*or):ctx.lineTo(Math.cos(a)*or,Math.sin(a)*or);}ctx.closePath();ctx.stroke();ctx.restore();
+  // ── NEW: DYNAMIC SPECULAR — offset tracks motion (appears 3D) ──
+  // When Navi moves right, highlight offsets left (light source is "fixed" in space)
+  // When idle, highlight stays at default upper-left position
+  const specOffX=clamp(-velX*2.2,-6,6);
+  const specOffY=clamp(-velY*1.5,-4,4);
+  const specX=ox-3+specOffX,specY=oy-3+specOffY;
+  gr=ctx.createRadialGradient(specX,specY,0,specX,specY,safe(18*pulse));
+  gr.addColorStop(0,'rgba(255,255,255,1)');
+  gr.addColorStop(.55,'rgba(255,255,255,.65)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=gr;ctx.beginPath();ctx.arc(specX,specY,18*pulse,0,Math.PI*2);ctx.fill();
+  // Hot-dot highlight tracks similarly but smaller
+  const hotX=ox-4+specOffX*.6,hotY=oy-5+specOffY*.6;
+  gr=ctx.createRadialGradient(hotX,hotY,0,hotX+1,hotY+2,safe(9*pulse));
+  gr.addColorStop(0,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=gr;ctx.beginPath();ctx.arc(hotX+2,hotY+2,9*pulse,0,Math.PI*2);ctx.fill();
+  // ── NEW: RIM BACKLIGHT — faint cool glow on opposite side of specular ──
+  // Suggests ambient light wrapping around the orb (the "dark side" isn't pitch black)
+  const rimX=ox-specOffX*.7,rimY=oy+4-specOffY*.7;
+  const rim=ctx.createRadialGradient(rimX,rimY,safe(28*pulse),rimX,rimY,safe(42*pulse));
+  rim.addColorStop(0,'rgba(0,0,0,0)');
+  rim.addColorStop(.6,`rgba(${clamp(r-30,0,255)},${clamp(g-10,0,255)},${clamp(b+30,0,255)},.22)`);
+  rim.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rim;ctx.beginPath();ctx.arc(ox,oy,42*pulse,0,Math.PI*2);ctx.fill();
+  // ── NEW: CAUSTIC SPARKLES — tiny bright flickers on surface ──
+  // Uses t-based pseudo-random positions; each sparkle is brief (~200ms)
+  {
+    const sparkleCount=2;
+    for(let si=0;si<sparkleCount;si++){
+      // Each sparkle has its own slow phase; flash when sin peaks
+      const sPhase=t*.55+si*3.7;
+      const sFlash=Math.sin(sPhase);
+      if(sFlash>.88){ // only in the top 12% of the wave — gives flash feel
+        const intensity=(sFlash-.88)/.12; // 0→1 within the flash window
+        // Position also changes slowly so sparkles appear at different spots each flash
+        const posT=Math.floor(sPhase/Math.PI*2)+si*11;
+        const pAng=(posT*2.399)%(Math.PI*2); // golden angle for varied positions
+        const pDist=8+(posT%5)*3; // 8-20px from center
+        const spx=ox+Math.cos(pAng)*pDist*pulse,spy=oy+Math.sin(pAng)*pDist*pulse;
+        const spr=safe(2.5*intensity*pulse);
+        const sg=ctx.createRadialGradient(spx,spy,0,spx,spy,spr*3);
+        sg.addColorStop(0,`rgba(255,255,255,${intensity*.95})`);
+        sg.addColorStop(.4,`rgba(255,250,230,${intensity*.45})`);
+        sg.addColorStop(1,'rgba(255,245,210,0)');
+        ctx.fillStyle=sg;ctx.beginPath();ctx.arc(spx,spy,spr*3,0,Math.PI*2);ctx.fill();
+      }
+    }
+  }
+  // Shimmer flash — expanding white-gold burst
+  if(shimmerLife>0){
+    const sRad=safe((1-shimmerLife)*85);
+    const sOp=shimmerLife*.72;
+    const sg=ctx.createRadialGradient(ox,oy,0,ox,oy,sRad);
+    sg.addColorStop(0,`rgba(255,248,210,${sOp})`);sg.addColorStop(.45,`rgba(255,215,100,${sOp*.45})`);sg.addColorStop(1,'rgba(255,200,70,0)');
+    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(ox,oy,sRad,0,Math.PI*2);ctx.fill();
+  }
+}
+
+// ── WINGS ──────────────────────────────────────────────────
+function drawWings(ox,oy,r,g,b){
+  const amp=safe((.07+speed*.32)*flapMult),flap=Math.sin(flapT)*amp,lFlap=Math.sin(flapT-.55)*safe(amp*.82);
+  // ws now applied as ctx.scale(ws,ws) — both axes scale together, no distortion
+  const ws=mood==='speaking'?1.08:mood==='happy'?1.14:mood==='thinking'?.88:mood==='angry'?.88:1.0;
+  // Wing blink — rare micro-dim (180ms) every 6-12s, drops wa to 60%
+  const nowMs=Date.now();
+  if(nowMs>=wingBlinkNext&&wingBlinkEnd<=0){wingBlinkEnd=nowMs+180;wingBlinkNext=nowMs+rnd(6000,12000);}
+  if(wingBlinkEnd>0&&nowMs>wingBlinkEnd)wingBlinkEnd=0;
+  const blinkMult=wingBlinkEnd>0?0.60:1.0;
+  let wa=(mood==='thinking'?.65:mood==='angry'?.72:.80)*blinkMult;
+  const vb=(.28+Math.sin(t*2.2)*.055)*Math.max(0.18,flapMult);
+  // Aurora flow — wave position 0→1 along wing, ~2.2s cycle, different phase per wing
+  const auroraPhaseUpper=(t*.45)%1;
+  const auroraPhaseLower=((t*.45)+.37)%1; // offset so not synchronized
+  ctx.save();ctx.translate(ox,oy);ctx.scale(ws,ws); // proportional scale — correct at all sizes
+  [-1,1].forEach((side,sideIdx)=>{
+    // Side offset so left/right wings also slightly desynced
+    const sideOffset=sideIdx*.23;
+    const aUpp=((auroraPhaseUpper+sideOffset)%1);
+    const aLow=((auroraPhaseLower+sideOffset)%1);
+    ctx.save();ctx.scale(side,1);
+    ctx.save();ctx.rotate(clamp(flap,-.35,.35));
+    ctx.beginPath();ctx.moveTo(10,-5);ctx.bezierCurveTo(26,-44,70,-68,88,-30);ctx.bezierCurveTo(80,-8,50,6,10,-5);ctx.closePath();
+    const uf=ctx.createLinearGradient(10,-5,88,-30);uf.addColorStop(0,`rgba(${r},${g},${b},.10)`);uf.addColorStop(.4,`rgba(${Math.round(r*.4+255*.6)},${Math.round(g*.4+255*.6)},${Math.round(b*.4+255*.6)},.06)`);uf.addColorStop(1,`rgba(${r},${g},${b},.03)`);ctx.fillStyle=uf;ctx.fill();
+    // ── NEW: Wing membrane iridescence — rainbow sheen overlay ──
+    const iriT=t*.15+sideIdx*1.3; // each wing has own phase
+    const iriX=10+Math.cos(iriT)*28,iriY=-20+Math.sin(iriT*.6)*12;
+    ctx.save();ctx.clip(); // clip to current wing path
+    const iriGrad=ctx.createLinearGradient(iriX-30,iriY-20,iriX+30,iriY+20);
+    iriGrad.addColorStop(0,'rgba(255,130,220,0)');
+    iriGrad.addColorStop(.35,`rgba(255,130,220,${.08*wa})`);
+    iriGrad.addColorStop(.55,`rgba(130,200,255,${.08*wa})`);
+    iriGrad.addColorStop(.75,`rgba(255,220,130,${.07*wa})`);
+    iriGrad.addColorStop(1,'rgba(255,220,130,0)');
+    ctx.fillStyle=iriGrad;ctx.fillRect(0,-80,100,90);
+    ctx.restore();
+    ctx.save();ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=12;ctx.strokeStyle=`rgba(255,255,255,${.44*wa})`;ctx.lineWidth=.9;ctx.stroke();ctx.shadowBlur=0;ctx.restore();
+    ctx.save();ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=6;ctx.strokeStyle=`rgba(255,255,255,${vb*wa})`;ctx.lineWidth=.55;
+    ctx.beginPath();ctx.moveTo(10,-5);ctx.bezierCurveTo(30,-17,60,-23,78,-27);ctx.stroke();ctx.beginPath();ctx.moveTo(20,-21);ctx.bezierCurveTo(36,-44,58,-54,72,-43);ctx.stroke();ctx.beginPath();ctx.moveTo(34,-18);ctx.bezierCurveTo(46,-32,60,-37,68,-31);ctx.stroke();
+    ctx.lineWidth=.28;ctx.globalAlpha=.42;[[22,-16,26,-32],[38,-19,42,-37],[52,-22,56,-39],[64,-24,66,-37]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+    ctx.globalAlpha=1;
+    // ── Aurora flow overlay — bright spot traveling along outer upper vein ──
+    // Wave is Gaussian centered at aUpp, highlights veins near that position
+    const upperVeins=[[10,-5,78,-27],[20,-21,72,-43],[34,-18,68,-31]];
+    upperVeins.forEach(([x1,y1,x2,y2])=>{
+      const midX=x1+(x2-x1)*aUpp,midY=y1+(y2-y1)*aUpp;
+      const glow=ctx.createRadialGradient(midX,midY,0,midX,midY,safe(10));
+      glow.addColorStop(0,`rgba(255,255,255,${.38*wa})`);
+      glow.addColorStop(.5,`rgba(${clamp(r+60,0,255)},${clamp(g+60,0,255)},${clamp(b+60,0,255)},${.18*wa})`);
+      glow.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(midX,midY,10,0,Math.PI*2);ctx.fill();
+    });
+    // ── NEW: Wing-tip highlight — bright accent at outermost curve ──
+    {
+      const tipX=84,tipY=-32; // approximate wing tip position
+      const tipGlow=ctx.createRadialGradient(tipX,tipY,0,tipX,tipY,safe(6));
+      tipGlow.addColorStop(0,`rgba(255,255,255,${.55*wa})`);
+      tipGlow.addColorStop(.5,`rgba(${clamp(r+80,0,255)},${clamp(g+80,0,255)},${clamp(b+80,0,255)},${.22*wa})`);
+      tipGlow.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=tipGlow;ctx.beginPath();ctx.arc(tipX,tipY,6,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;ctx.restore();ctx.restore();
+    ctx.save();ctx.rotate(clamp(-lFlap,-.28,.28));
+    ctx.beginPath();ctx.moveTo(9,5);ctx.bezierCurveTo(24,23,52,52,47,62);ctx.bezierCurveTo(36,66,14,37,9,5);ctx.closePath();
+    const lf=ctx.createLinearGradient(9,5,47,62);lf.addColorStop(0,`rgba(${r},${g},${b},.09)`);lf.addColorStop(.5,`rgba(${Math.round(r*.4+255*.6)},${Math.round(g*.4+255*.6)},${Math.round(b*.4+255*.6)},.05)`);lf.addColorStop(1,`rgba(${r},${g},${b},.03)`);ctx.fillStyle=lf;ctx.fill();
+    // ── NEW: Lower wing iridescence — slightly different phase from upper ──
+    {
+      const iriT2=t*.12+sideIdx*1.9+.7;
+      const iriX2=15+Math.cos(iriT2)*18,iriY2=25+Math.sin(iriT2*.7)*15;
+      ctx.save();ctx.clip();
+      const iriG2=ctx.createLinearGradient(iriX2-20,iriY2-15,iriX2+20,iriY2+15);
+      iriG2.addColorStop(0,'rgba(180,255,200,0)');
+      iriG2.addColorStop(.4,`rgba(180,255,200,${.06*wa})`);
+      iriG2.addColorStop(.6,`rgba(220,160,255,${.06*wa})`);
+      iriG2.addColorStop(1,'rgba(220,160,255,0)');
+      ctx.fillStyle=iriG2;ctx.fillRect(0,0,55,70);
+      ctx.restore();
+    }
+    ctx.save();ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=9;ctx.strokeStyle=`rgba(255,255,255,${.38*wa})`;ctx.lineWidth=.8;ctx.stroke();ctx.shadowBlur=0;ctx.restore();
+    ctx.save();ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=5;ctx.strokeStyle=`rgba(255,255,255,${vb*.8*wa})`;ctx.lineWidth=.45;
+    ctx.beginPath();ctx.moveTo(9,5);ctx.bezierCurveTo(26,23,40,42,44,54);ctx.stroke();ctx.beginPath();ctx.moveTo(17,18);ctx.bezierCurveTo(26,29,34,37,36,48);ctx.stroke();
+    ctx.lineWidth=.25;ctx.globalAlpha=.38;[[16,13,20,29],[26,21,28,37],[34,29,34,45]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+    ctx.globalAlpha=1;
+    // ── Aurora flow on lower wing ──
+    const lowerVeins=[[9,5,44,54],[17,18,36,48]];
+    lowerVeins.forEach(([x1,y1,x2,y2])=>{
+      const midX=x1+(x2-x1)*aLow,midY=y1+(y2-y1)*aLow;
+      const glow=ctx.createRadialGradient(midX,midY,0,midX,midY,safe(8));
+      glow.addColorStop(0,`rgba(255,255,255,${.30*wa})`);
+      glow.addColorStop(.5,`rgba(${clamp(r+50,0,255)},${clamp(g+50,0,255)},${clamp(b+50,0,255)},${.14*wa})`);
+      glow.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(midX,midY,8,0,Math.PI*2);ctx.fill();
+    });
+    // ── NEW: Lower wing-tip highlight ──
+    {
+      const tipX=45,tipY=58;
+      const tipG=ctx.createRadialGradient(tipX,tipY,0,tipX,tipY,safe(5));
+      tipG.addColorStop(0,`rgba(255,255,255,${.45*wa})`);
+      tipG.addColorStop(.5,`rgba(${clamp(r+60,0,255)},${clamp(g+60,0,255)},${clamp(b+60,0,255)},${.18*wa})`);
+      tipG.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=tipG;ctx.beginPath();ctx.arc(tipX,tipY,5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;ctx.restore();ctx.restore();ctx.restore();
+  });ctx.restore();
+}
+
+// ── PARTICLES ──────────────────────────────────────────────
+let sparks=[],rings=[],wisps=[],stardust=[];
+
+// Normalized speed 0-1 for formulas (raw speed is pixels/frame, can be 40+)
+const speedN=()=>clamp(speed/12,0,1);
+
+function spawnSpark(ox,oy,r,g,b){
+  // No sparks when calm or catching breath
+  if((beh==='hover'&&!zoomiesActive)||stillnessActive||(pState==='resting'&&speed<.5)||fatigueEnd>Date.now())return;
+  const sn=speedN();
+  const rate=.22*MOODS[mood].sp*(1+sn*1.8)*circadian(); // night more sparks
+  if(Math.random()>rate)return;
+  // Trail behind movement direction — both X and Y
+  const trailX=ox-velX*3;
+  const trailY=oy-velY*3;
+  const sp=clamp(6+sn*28,6,34);
+  // Mix of tiny dots and small glows
+  const tiny=Math.random()<.55;
+  sparks.push({
+    x:trailX+rnd(-sp,sp)*.5,
+    y:trailY+rnd(-sp,sp)*.5,
+    vx:rnd(-1,1)*(1+sn*1.8)-velX*.18,
+    vy:rnd(-1.2,.4)*(1+sn*1.4)-velY*.18,
+    life:1,
+    decay:tiny?rnd(.028,.055):rnd(.016,.032),
+    sz:tiny?rnd(.8,1.8):rnd(2.2,4.8),
+    op:tiny?.65:.85,r,g,b
+  });
+}
+
+function drawSparks(){
+  sparks=sparks.filter(s=>s.life>.05);
+  sparks.forEach(s=>{
+    s.x+=s.vx;s.y+=s.vy;s.vy+=.018;s.life-=s.decay;
+    const op=s.op||0.85;
+    const rad=safe(s.sz*s.life*2.2);
+    const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,rad);
+    g.addColorStop(0,`rgba(255,255,255,${s.life*op})`);
+    g.addColorStop(.38,`rgba(${s.r},${s.g},${s.b},${s.life*op*.7})`);
+    g.addColorStop(1,`rgba(${s.r},${s.g},${s.b},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(s.x,s.y,rad,0,Math.PI*2);ctx.fill();
+  });
+}
+
+// Wake trail — whisper-light blobs during dash
+function drawWake(){
+  wake=wake.filter(w=>w.life>.02);
+  wake.forEach(w=>{
+    w.life-=.015;
+    const rad=safe(5*w.life);
+    const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,rad);
+    g.addColorStop(0,`rgba(${w.r},${w.g},${w.b},${w.life*.08})`);
+    g.addColorStop(1,`rgba(${w.r},${w.g},${w.b},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(w.x,w.y,rad,0,Math.PI*2);ctx.fill();
+  });
+}
+
+// Stardust — slow cross trail, calm and poetic
+function spawnStardust(ox,oy,r,g,b){
+  if(beh!=='cross'||Math.random()>.018)return;
+  stardust.push({
+    x:ox+rnd(-12,12),y:oy+rnd(-8,8),
+    vx:rnd(-.25,.25),vy:rnd(-.18,.12),
+    life:1,decay:rnd(.003,.007),
+    r,g,b
+  });
+}
+function drawStardust(){
+  stardust=stardust.filter(s=>s.life>.04);
+  stardust.forEach(s=>{
+    s.x+=s.vx;s.y+=s.vy;s.life-=s.decay;
+    ctx.globalAlpha=s.life*.22;
+    ctx.fillStyle=`rgb(${s.r},${s.g},${s.b})`;
+    ctx.beginPath();ctx.arc(s.x,s.y,safe(1.5*s.life),0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+function updateRings(ox,oy,r,g,b){
+  // Ring emission rate scales with speaking amplitude when AI is speaking
+  // Base rate .04 when speaking; amplitude up to .20 when at full volume
+  const spAmp=naviControl.getSpeakingAmplitude();
+  const emitRate=mood==='speaking'?(0.04+spAmp*0.16):0;
+  if(emitRate>0&&Math.random()<emitRate){
+    rings.push({x:ox,y:oy,rad:22,life:1,r,g,b});
+  }
+  rings=rings.filter(x=>x.life>0);
+  ctx.save();
+  rings.forEach(rg=>{
+    rg.rad+=2.8;rg.life-=.022;
+    ctx.strokeStyle=`rgba(${rg.r},${rg.g},${rg.b},${rg.life*.38})`;
+    ctx.lineWidth=safe(rg.life*1.5);
+    ctx.beginPath();ctx.arc(rg.x,rg.y,safe(rg.rad),0,Math.PI*2);ctx.stroke();
+  });
+  ctx.restore();
+}
+function updateWisps(ox,oy,r,g,b){if(mood==='thinking'&&Math.random()<.04)wisps.push({x:ox+rnd(-22,22),y:oy-10,vx:rnd(-.5,.5),vy:rnd(-1,-.45),life:1,decay:rnd(.008,.018),sz:safe(rnd(2,5)),r,g,b});wisps=wisps.filter(w=>w.life>.05);wisps.forEach(w=>{w.x+=w.vx+Math.sin(t*3+w.y*.1)*.3;w.y+=w.vy;w.life-=w.decay;const rad=safe(w.sz*w.life*1.8);const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,rad);g.addColorStop(0,`rgba(${w.r},${w.g},${w.b},${w.life*.6})`);g.addColorStop(1,`rgba(${w.r},${w.g},${w.b},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(w.x,w.y,rad,0,Math.PI*2);ctx.fill();});}
+function drawAngryFx(r,g,b){if(mood!=='angry')return;ctx.save();ctx.globalAlpha=.018+Math.sin(t*18)*.012;ctx.fillStyle=`rgb(${r},0,0)`;ctx.fillRect(0,0,W,H);ctx.globalAlpha=.18+Math.sin(t*15)*.11;ctx.strokeStyle=`rgb(${r},${g},${b})`;ctx.lineWidth=.5;for(let i=0;i<3;i++){const s=i%4;let x1,y1,x2,y2;if(s===0){x1=rnd(0,W);y1=0;x2=x1+rnd(-25,25);y2=rnd(12,28);}else if(s===1){x1=W;y1=rnd(0,H);x2=W-rnd(12,28);y2=y1+rnd(-25,25);}else if(s===2){x1=rnd(0,W);y1=H;x2=x1+rnd(-25,25);y2=H-rnd(12,28);}else{x1=0;y1=rnd(0,H);x2=rnd(12,28);y2=y1+rnd(-25,25);}ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}ctx.restore();}
+
+// ── NEBULA WISPS — slow internal motion, space feels alive ──
+function drawNebulaWisps(){
+  if(!nebPos[0])return;
+  const{x:cx,y:cy,layers}=nebPos[0];
+  const maxR=layers[0].r*.62,{cr,cg,cb}=layers[1];
+  for(let i=0;i<3;i++){
+    const ph=i*Math.PI*2/3;
+    // Lissajous path — irrational frequencies, never repeats (~8.8 min cycle)
+    const wx=cx+Math.cos(t*.011+ph)*maxR*.38+Math.cos(t*.017+ph*1.5)*maxR*.22;
+    const wy=cy+Math.sin(t*.013+ph)*maxR*.32+Math.sin(t*.019+ph*1.8)*maxR*.18;
+    const d=Math.sqrt((wx-cx)**2+(wy-cy)**2);
+    if(d>maxR*.86)continue;
+    const op=.048*(1-d/(maxR*.86));
+    const wr=maxR*.26;
+    const wg=ctx.createRadialGradient(wx,wy,0,wx,wy,safe(wr));
+    wg.addColorStop(0,`rgba(${cr},${cg},${cb},${op})`);wg.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+    ctx.fillStyle=wg;ctx.fillRect(wx-wr,wy-wr,wr*2,wr*2);
+  }
+}
+
+// ── AGN JET — bipolar jet from quasar nucleus ──
+const AGN_DUR=210;
+function updateAndDrawAGN(){
+  if(!QUASAR_X)return;
+  if(agnAge<=0&&Date.now()>=agnTimer){
+    agnAge=1;agnAngle=rnd(0,Math.PI*2);
+    agnTimer=Date.now()+rnd(1200000,1800000);
+  }
+  if(agnAge<=0)return;
+  const prog=agnAge/AGN_DUR;
+  agnAge++;if(agnAge>AGN_DUR){agnAge=0;return;}
+  const env2=prog<.18?prog/.18:prog>.72?(1-prog)/.28:1;
+  const jLen=safe(88*env2);
+  ctx.save();
+  for(let d=0;d<2;d++){
+    const a=agnAngle+(d?Math.PI:0),ex=QUASAR_X+Math.cos(a)*jLen,ey=QUASAR_Y+Math.sin(a)*jLen;
+    const jg=ctx.createLinearGradient(QUASAR_X,QUASAR_Y,ex,ey);
+    jg.addColorStop(0,`rgba(200,230,255,${env2*.82})`);jg.addColorStop(.45,`rgba(150,210,255,${env2*.48})`);jg.addColorStop(1,'rgba(100,180,255,0)');
+    ctx.strokeStyle=jg;ctx.lineWidth=safe(env2*2.6);ctx.beginPath();ctx.moveTo(QUASAR_X,QUASAR_Y);ctx.lineTo(ex,ey);ctx.stroke();
+    const jg2=ctx.createLinearGradient(QUASAR_X,QUASAR_Y,ex,ey);
+    jg2.addColorStop(0,`rgba(180,220,255,${env2*.32})`);jg2.addColorStop(1,'rgba(100,180,255,0)');
+    ctx.strokeStyle=jg2;ctx.lineWidth=safe(env2*5.5);ctx.beginPath();ctx.moveTo(QUASAR_X,QUASAR_Y);ctx.lineTo(ex,ey);ctx.stroke();
+  }
+  const ng=ctx.createRadialGradient(QUASAR_X,QUASAR_Y,0,QUASAR_X,QUASAR_Y,safe(9*env2));
+  ng.addColorStop(0,`rgba(255,255,220,${env2*.92})`);ng.addColorStop(1,'rgba(255,255,200,0)');
+  ctx.fillStyle=ng;ctx.beginPath();ctx.arc(QUASAR_X,QUASAR_Y,9*env2,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+// ── BAR ─────────────────────────────────────────────────────
+function updateBar(r,g,b){
+  const col=`rgb(${r},${g},${b})`;
+  const pd=document.getElementById('pd');
+  pd.style.background=col;
+  const dotScale=0.82+breathRhythm()*.18;
+  pd.style.transform=`scale(${dotScale.toFixed(3)})`;
+  document.getElementById('st').style.color=col;
+  const wv=document.getElementById('wv');
+  if(mood==='speaking'){wv.style.opacity='1';document.querySelectorAll('.wb').forEach((wb,i)=>{wb.style.background=col;wb.style.height=safe(4+Math.abs(Math.sin(t*8+i*.8))*12)+'px';});}else wv.style.opacity='0';
+  const dots=mood==='listening'||mood==='thinking'?'.'.repeat(1+(Math.floor(t*1.8)%3)):'';
+  document.getElementById('st').textContent=MOODS[mood].st+dots;
+}
+const startTime=Date.now();
+const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const MOON_SYMS=['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+const MOON_NAMES=['NEW MOON','WAX CRESCENT','FIRST QTR','WAX GIBBOUS','FULL MOON','WAN GIBBOUS','LAST QTR','WAN CRESCENT'];
+function getMoonPhase(){
+  const SYN=29.53059;
+  const daysSince=(Date.now()-new Date('2000-01-06T18:14:00Z').getTime())/86400000;
+  const age=((daysSince%SYN)+SYN)%SYN; // lunar age in days, 0 to 29.53
+  const norm=age/SYN; // 0 to 1
+  const i=Math.floor(norm*8)%8;
+  // Illumination: cosine approximation. 0 at new moon, 1 at full, 0 at new again
+  const illum=Math.round((1-Math.cos(norm*Math.PI*2))*50);
+  const waxing=norm<0.5;
+  return{
+    sym:MOON_SYMS[i],
+    name:MOON_NAMES[i],
+    pct:illum,
+    age:age,
+    trend:waxing?'↑':'↓'
+  };
+}
+function tzHM(tz){try{return new Date().toLocaleTimeString('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return'--:--';}}
+function updateTime(){
+  const n=new Date();
+  document.getElementById('tday').textContent=DAYS[n.getDay()];
+  document.getElementById('tmhm').textContent=n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
+  document.getElementById('tmsec').textContent='·'+n.getSeconds().toString().padStart(2,'0');
+  document.getElementById('taru').textContent=tzHM('America/Aruba');
+  document.getElementById('tbtm').textContent=tzHM('Asia/Jakarta');
+  const el=Date.now()-startTime,uh=Math.floor(el/3600000),um=Math.floor((el%3600000)/60000);
+  document.getElementById('upt').textContent=uh.toString().padStart(2,'0')+':'+um.toString().padStart(2,'0');
+  const mp=getMoonPhase();
+  document.getElementById('mname').textContent=mp.name;
+  // Draw the moon illumination shape based on real phase fraction (0=new, 0.5=full, 1=new)
+  const p=mp.age/29.53059; // 0 to 1
+  const R=10;
+  let d='';
+  if(p<0.005||p>0.995){d='';} // new moon — nothing lit
+  else if(Math.abs(p-0.5)<0.005){ // full moon — full circle
+    d=`M ${-R} 0 A ${R} ${R} 0 1 1 ${R} 0 A ${R} ${R} 0 1 1 ${-R} 0 Z`;
+  }else{
+    // phase angle 0..2π, controls terminator ellipse width
+    const pa=p*Math.PI*2;
+    const rx=Math.abs(Math.cos(pa))*R; // terminator ellipse x-radius
+    const waxing=p<0.5;
+    const gibbous=p>0.25&&p<0.75;
+    // Start from top (0,-R), arc down the right side to (0,R), then draw terminator ellipse back to top
+    // For waxing: right side lit. For waning: left side lit.
+    const side=waxing?1:-1;
+    // Terminator sweep: inside ellipse for crescent, outside for gibbous
+    const sweep=gibbous?(waxing?0:1):(waxing?1:0);
+    d=`M 0 ${-R} A ${R} ${R} 0 0 ${waxing?1:0} 0 ${R} A ${rx} ${R} 0 0 ${sweep} 0 ${-R} Z`;
+  }
+  document.getElementById('mlit').setAttribute('d',d);
+}
+setInterval(updateTime,1000);updateTime();
+function setMood(m){
+  if(!MOODS[m])return;
+  const prev=mood;mood=m;
+  if(m==='happy'){const ox=W/2,oy=H*.44;for(let i=0;i<26;i++){const a=rnd(0,Math.PI*2),sp=rnd(2,7);sparks.push({x:ox,y:oy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:rnd(.009,.022),sz:safe(rnd(2,5)),r:255,g:215,b:70});}}
+  // Behavioral response to mood change — fairy snaps into one emotion at a time
+  if(prev!==m){
+    if(m==='alert'||m==='angry'){const md=mxR();wTgt.x=rnd(-md.x*.5,md.x*.5);wTgt.y=rnd(-md.y*.5,md.y*.5);lSpd=.14;bTimer=Date.now()+900;}
+    else if(m==='happy'){pathT=0;beh='spiral';lSpd=.035;bTimer=Date.now()+3500;}
+    else if(m==='thinking'){lSpd=.002;bTimer=Date.now()+4000;}
+    else if(m==='idle'){pState='exploring';pickB();}
+  }
+}
+
+// ── MAIN LOOP ──────────────────────────────────────────────
+function frame(){
+  const md=MOODS[mood];t+=.018;flapT+=.022*flapMult;
+  naviPulse=Math.max(0,naviPulse-.022);
+  cR=lerp(cR,md.r,.035);cG=lerp(cG,md.g,.035);cB=lerp(cB,md.b,.035);
+  const r=Math.round(cR),g=Math.round(cG),b=Math.round(cB);
+  // Rare behavior visual multipliers
+  flapMult=lerp(flapMult,stillnessActive?.10:glideActive?.06:shiverEnd>Date.now()?2.5:fatigueEnd>Date.now()?.35:zoomiesActive?1.85:1.0,shiverEnd>Date.now()?.25:.045);
+  naviBright=lerp(naviBright,stillnessActive?.55:1.0,.035);
+  // ── SYNC-FLASH — firefly-like: Navi's brightness syncs with a star's twinkle ──
+  // Triggered every 3-6 min in idle/hover states, lasts 8 seconds
+  if(Date.now()>=syncFlashTimer&&!zoomiesActive&&!stillnessActive&&!orbitActive&&syncFlashEnd===0&&(beh==='hover'||beh==='drift'||beh==='perch'||beh==='patrol')){
+    // Pick a random bright star
+    if(typeof S3!=='undefined'&&S3.length>0){
+      syncFlashStarIdx=Math.floor(Math.random()*S3.length);
+      syncFlashStart=Date.now();
+      syncFlashEnd=Date.now()+8000;
+    }
+    syncFlashTimer=Date.now()+rnd(180000,360000);
+  }
+  if(syncFlashEnd>0&&Date.now()<syncFlashEnd&&syncFlashStarIdx>=0&&typeof S3!=='undefined'&&S3[syncFlashStarIdx]){
+    const star=S3[syncFlashStarIdx];
+    // Envelope: fade in over 1s, hold, fade out over 1s
+    const elapsed=Date.now()-syncFlashStart;
+    const total=8000;
+    let env=1;
+    if(elapsed<1000)env=elapsed/1000;
+    else if(elapsed>total-1000)env=(total-elapsed)/1000;
+    // Star twinkle: classic star formula using sine based on star position and time
+    const tw=.5+.5*Math.sin(t*2.1+star.x*.013+star.y*.019);
+    // Modulate Navi's brightness in sync: up to ±8% (subtle but perceptible)
+    const syncMod=1+(tw-.5)*.16*env;
+    naviBright*=syncMod;
+  }
+  if(syncFlashEnd>0&&Date.now()>=syncFlashEnd){syncFlashEnd=0;syncFlashStarIdx=-1;}
+  shimmerLife=Math.max(0,shimmerLife-.040);
+  auroraFlareMult=lerp(auroraFlareMult,1.0,.0018);
+  // Timers
+  const now=Date.now();
+  if(now>=shimmerTimer&&shimmerLife<=0){shimmerLife=1.0;shimmerTimer=now+rnd(900000,1200000);}
+  if(now>=glideTimer&&!glideActive&&!stillnessActive&&!zoomiesActive&&!orbitActive){glideActive=true;glideStart=now;glideTimer=now+rnd(600000,900000);}
+  if(glideActive){if(now-glideStart>=4400){glideActive=false;}}
+  if(now>=auroraFlareTimer){auroraFlareMult=3.5;auroraFlareTimer=now+rnd(1200000,1500000);naviPulse=0.42;}
+  updateMov();
+  const moy=mood==='speaking'?-22:mood==='thinking'?16:0;
+  const microX=Math.sin(t*3.7)*.9+Math.sin(t*1.1)*.4;
+  const microY=Math.cos(t*2.9)*.7+Math.cos(t*.8)*.3;
+  const fy=Math.sin(t*1.08)*13+wPos.y+moy+microY;
+  const fx=Math.sin(t*.63)*5+wPos.x+microX;
+  if(ufoActive&&(uD.state==='hover'||uD.state==='comm')){
+    const nwx=W/2+fx,nwy=H*.44+fy,dx=uD.x-nwx,dy=uD.y-nwy,d=Math.sqrt(dx*dx+dy*dy);
+    // Mood-based response
+    let pullStrength=0,direction=1;
+    if(mood==='happy'||mood==='listening'){pullStrength=Math.min(d*.28,42);direction=1;} // approach eagerly
+    else if(mood==='alert'||mood==='angry'){pullStrength=Math.min(d*.18,26);direction=-1;} // retreat
+    else if(mood==='thinking'){pullStrength=Math.min(d*.10,14);direction=1;} // observe from distance
+    else{pullStrength=Math.min(d*.22,32);direction=1;} // default curious
+    // During comm phase, pull toward UFO more intensely (they're communicating)
+    if(uD.state==='comm'){pullStrength*=1.25;}
+    curiousX=lerp(curiousX,direction*(dx/Math.max(d,1))*pullStrength,.018);
+    curiousY=lerp(curiousY,direction*(dy/Math.max(d,1))*pullStrength,.018);
+  }else{curiousX=lerp(curiousX,0,.028);curiousY=lerp(curiousY,0,.028);}
+  eventDriftX=lerp(eventDriftX,0,.006);eventDriftY=lerp(eventDriftY,0,.006);
+  const ox=W/2+fx+curiousX+eventDriftX,oy=H*.44+fy+curiousY+eventDriftY;
+  // ── HEAD TILT — rotate subtly toward what she's watching ──
+  {
+    const nowMs=Date.now();
+    let targetX=null,targetY=null;
+    // Priority: orientation response > UFO > active POI
+    if(orientEnd>nowMs){targetX=orientX;targetY=orientY;}
+    else if(ufoActive&&(uD.state==='cruise'||uD.state==='hover'||uD.state==='comm'||uD.state==='entry')){targetX=uD.x;targetY=uD.y;}
+    else if(pState==='curious'&&poiTarget){targetX=W/2+poiTarget.x;targetY=H*.44+poiTarget.y;}
+    if(targetX!==null){
+      const dx=targetX-ox,dy=targetY-oy;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      // dy/d gives "vertical angle" component. Target above = negative. Positive tilt = lean right.
+      // We want her to lean *toward* horizontal direction — so use sign of dx scaled by how direct.
+      // Actually simpler: sin(atan2(dy,dx)) = dy/d. Use horizontal tilt based on target direction.
+      headTiltTgt=d>1 ? clamp(Math.sign(dx)*(1-Math.abs(dy/d))*8,-10,10) : 0;
+    }else{
+      headTiltTgt=0;
+    }
+    headTilt=lerp(headTilt,headTiltTgt,.045);
+  }
+  if((beh==='dash'||beh==='cross'||beh==='dart_poi'||zoomiesActive)&&speed>.03&&wake.length<30)wake.push({x:ox,y:oy,r,g,b,life:1});
+  ctx.clearRect(0,0,W,H);
+  if(bgCanvas)ctx.drawImage(bgCanvas,0,0);else{ctx.fillStyle='#00000d';ctx.fillRect(0,0,W,H);}
+  const tg=ctx.createRadialGradient(ox,oy,0,ox,oy,Math.max(W,H)*.82);tg.addColorStop(0,`rgba(${r},${g},${b},.072)`);tg.addColorStop(.32,`rgba(${r},${g},${b},.028)`);tg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=tg;ctx.fillRect(0,0,W,H);
+  drawNebulaHeartbeat();drawGalaxyRotation();drawAirglow();drawQuasarPulse();drawNebulaWisps();
+  // Live planet effects
+  drawPlanetAurora();
+  drawGasGiantStorm();
+  drawStars();
+  drawOrion();
+  drawDust(fx+curiousX,fy+curiousY,r,g,b);
+  updateShooters();drawRareEvents();drawSuperRare();updateAndDrawAGN();
+  if(Date.now()>=ufoTimer&&!ufoActive)triggerUFO();
+  drawUFO(ox,oy);
+  drawVignette();
+  drawAngryFx(r,g,b);
+  spawnSpark(ox,oy,r,g,b);drawSparks();drawWake();spawnStardust(ox,oy,r,g,b);drawStardust();updateRings(ox,oy,r,g,b);updateWisps(ox,oy,r,g,b);
+  ctx.save();ctx.translate(ox,oy);ctx.rotate(tilt*Math.PI/180+headTilt*Math.PI/180);
+  // Vertical pitch — subtle nose-up/down when moving vertically
+  ctx.scale(naviScale, naviScale*(1-clamp(tiltY,-8,8)*.008));
+  ctx.translate(-ox,-oy);
+  drawWings(ox,oy,r,g,b);drawOrb(ox,oy,r,g,b);ctx.restore();
+  updateBar(r,g,b);requestAnimationFrame(frame);
+}
+
+// Pi bridge — uncomment on Pi after: python3 -m http.server 8080
+// async function readState(){try{const res=await fetch('/state.json?t='+Date.now());if(res.ok){const s=await res.json();setMood(s.mood||'idle');}}catch(e){}}
+// setInterval(readState,100);
+
+const K={'1':'idle','2':'listening','3':'speaking','4':'thinking','5':'happy','6':'alert','7':'angry'};
+// Force a regular rare event by name — used for satellite test key
+function forceRareEvent(name){
+  if(rEv)return; // don't override in-progress event
+  rEv=name;rLife=1;rD={};
+  // Initialize event data based on type (matches logic in triggerRare)
+  if(name==='bright_star'){
+    rD.idx=Math.floor(Math.random()*S3.length);
+  }else if(name==='cosmic_ray'){
+    rD.y1=rnd(H*.05,H*.55);rD.y2=rD.y1+rnd(-H*.12,H*.12);
+  }else if(name==='nebula_pulse'){
+    rD.idx=Math.floor(Math.random()*nebPos.length);
+  }else if(name==='galaxy'){
+    rD.x=rnd(W*.05,W*.42);rD.y=rnd(H*.35,H*.75);rD.a=rnd(0,Math.PI*2);
+    rD.c=[[255,220,180],[180,200,255],[220,180,255]][Math.floor(Math.random()*3)];
+    const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);
+    eventDriftX=(edx/Math.max(edd,1))*12;eventDriftY=(edy/Math.max(edd,1))*9;
+  }else if(name==='supernova'){
+    rD.x=rnd(W*.08,W*.88);rD.y=rnd(H*.06,H*.75);naviPulse=.7;
+    const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);
+    startleX=-(edx/Math.max(edd,1))*22;startleY=-(edy/Math.max(edd,1))*16;startleEnd=Date.now()+600;
+    setTimeout(()=>{eventDriftX=(edx/Math.max(edd,1))*13;eventDriftY=(edy/Math.max(edd,1))*10;},660);
+  }else if(name==='comet'){
+    const dir=Math.random()>.5?1:-1;rD.dir=dir;rD.x=dir>0?-80:W+80;
+    rD.y=rnd(H*.06,H*.40);rD.vx=dir*rnd(1.2,2.2);rD.vy=rnd(.15,.55);
+    orientX=rD.x+rD.vx*60;orientY=rD.y;orientEnd=Date.now()+2500;
+  }else if(name==='satellite'){
+    const dir=Math.random()>.5?1:-1;rD.dir=dir;rD.x=dir>0?-20:W+20;rD.y=rnd(H*.10,H*.65);
+    rD.vx=dir*rnd(.55,.85);rD.vy=rnd(-.08,.08);rD.flarePhase=rnd(0.35,0.65);
+    orientX=rD.x+rD.vx*80;orientY=rD.y;orientEnd=Date.now()+3500;
+  }else if(name==='gravity_lens'){
+    rD.x=rnd(W*.2,W*.8);rD.y=rnd(H*.1,H*.7);rD.maxR=rnd(50,90);
+    rD.arcs=[0,1,2].map(()=>({a1:rnd(0,.5),a2:rnd(Math.PI*.7,Math.PI*1.7),b1:rnd(Math.PI*1.1,Math.PI*1.4),b2:rnd(Math.PI*2.1,Math.PI*2.7)}));
+  }else if(name==='gamma_ray_burst'){
+    rD.x=rnd(W*.12,W*.85);rD.y=rnd(H*.08,H*.72);rD.ang=rnd(0,Math.PI*2);naviPulse=.65;
+    const edx=rD.x-W/2,edy=rD.y-H*.44,edd=Math.sqrt(edx*edx+edy*edy);
+    startleX=-(edx/Math.max(edd,1))*18;startleY=-(edy/Math.max(edd,1))*13;startleEnd=Date.now()+550;
+    setTimeout(()=>{eventDriftX=(edx/Math.max(edd,1))*14;eventDriftY=(edy/Math.max(edd,1))*10;},620);
+  }
+}
+window.addEventListener('keydown',e=>{
+  if(K[e.key])setMood(K[e.key]);
+  if(e.key==='u'||e.key==='U'){if(!ufoActive)triggerUFO();}
+  // Test keys for rare/super-rare events
+  if(e.key==='k'||e.key==='K'){if(!srEv)triggerSuperRare('kilonova');}
+  if(e.key==='m'||e.key==='M'){if(!srEv)triggerSuperRare('meteor_shower');}
+  if(e.key==='s'||e.key==='S'){forceRareEvent('satellite');}
+});
+function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight-BAR;buildBg();}
+
+// ═════════════════════════════════════════════════════════════
+// ── AI CONTROL BRIDGE — WebSocket interface for Navi AI ──────
+// ═════════════════════════════════════════════════════════════
+// Claude/Navi AI connects to ws://localhost:8765 and sends JSON
+// commands. The animation state reflects her thoughts and speech.
+// If WebSocket unavailable, animation runs normally standalone.
+const naviControl = (function(){
+  const WS_URL='ws://localhost:8765';
+  const HEARTBEAT_MS=2000;
+  const RECONNECT_MS=3000;
+  let ws=null,connected=false,heartbeatTimer=null;
+  // Speaking amplitude from AI (0-1) — affects ring emission rate + orb pulse
+  let speakingAmplitude=0;
+  let speakingActive=false;
+  // Named points of interest the AI can point to
+  const NAMED_POIS={
+    ice_giant:   ()=>({x:W*.80-W/2,y:H*.09-H*.44}),
+    gas_giant:   ()=>({x:W*.07-W/2,y:H*.28-H*.44}),
+    moon:        ()=>({x:W*.80+34*1.95-W/2,y:H*.09+34*1.95*.35*.72-H*.44}),
+    orion:       ()=>({x:W*.38-W/2,y:H*.34-H*.44}),
+    milky_way:   ()=>({x:W*.5-W/2,y:H*.3-H*.44}),
+    center:      ()=>({x:0,y:0}),
+    upper_left:  ()=>({x:-W*.35,y:-H*.30}),
+    upper_right: ()=>({x:W*.35,y:-H*.30}),
+    lower_left:  ()=>({x:-W*.35,y:H*.25}),
+    lower_right: ()=>({x:W*.35,y:H*.25}),
+  };
+  const VALID_MOODS=['idle','listening','speaking','thinking','happy','alert','angry'];
+  const VALID_BEHAVIORS=['drift','patrol','dash','hover','spiral','cross','dart_poi','loop','perch'];
+  const VALID_PERSONALITIES=['exploring','resting','curious','playful','watchful'];
+
+  function handleCommand(cmd){
+    try{
+      switch(cmd.type){
+        case'mood':{
+          if(VALID_MOODS.includes(cmd.value))setMood(cmd.value);
+          break;}
+        case'goto':{
+          // Normalized coords (0-1) → screen offsets relative to Navi's home (W/2, H*.44)
+          const tx=clamp((cmd.x||.5)*W-W/2,-W*.45,W*.45);
+          const ty=clamp((cmd.y||.5)*H-H*.44,-H*.40,H*.40);
+          wTgt.x=tx;wTgt.y=ty;
+          lSpd=.04;bTimer=Date.now()+5000;
+          // Also orient her head that way
+          orientX=tx;orientY=ty;orientEnd=Date.now()+2000;
+          break;}
+        case'point_at':{
+          let tx,ty;
+          if(cmd.target&&NAMED_POIS[cmd.target]){
+            const p=NAMED_POIS[cmd.target]();tx=p.x;ty=p.y;
+          }else if(typeof cmd.x==='number'&&typeof cmd.y==='number'){
+            tx=cmd.x*W-W/2;ty=cmd.y*H-H*.44;
+          }else break;
+          orientX=tx;orientY=ty;orientEnd=Date.now()+3000;
+          // Also lean slightly toward it
+          poiTarget={x:tx,y:ty};
+          break;}
+        case'behavior':{
+          if(cmd.value==='zoomies'){
+            if(!zoomiesActive&&!stillnessActive){
+              zoomiesActive=true;zoomiesDash=0;zoomiesWindup=true;
+              lastZoomDash=Date.now();naviPulse=.85;
+            }
+          }else if(cmd.value==='stillness'){
+            if(!stillnessActive&&!zoomiesActive){
+              stillnessActive=true;stillnessStart=Date.now();
+            }
+          }else if(cmd.value==='glide'){
+            if(!glideActive)glideActive=true,glideStart=Date.now();
+          }else if(cmd.value==='shimmer'){
+            shimmerLife=1.0;
+          }else if(cmd.value==='orbit'){
+            if(!orbitActive){orbitActive=true;orbitAngle=rnd(0,Math.PI*2);orbitStart=Date.now();beh='drift';}
+          }else if(VALID_BEHAVIORS.includes(cmd.value)){
+            beh=cmd.value;
+            if(cmd.value==='perch'){
+              const m=mxR();
+              watchfulPerchX=rnd(-m.x*.75,m.x*.75);
+              watchfulPerchY=rnd(-m.y*.70,m.y*.50);
+              wTgt.x=watchfulPerchX;wTgt.y=watchfulPerchY;
+              bTimer=Date.now()+20000;lSpd=.008;
+              beh='perch';
+            }else{
+              // Direct-set behavior; will hold for default duration
+              beh=cmd.value;
+              bTimer=Date.now()+8000;
+            }
+          }
+          break;}
+        case'personality':{
+          if(VALID_PERSONALITIES.includes(cmd.value)){
+            pState=cmd.value;pTimer=Date.now()+rnd(60000,120000);pickB();
+          }
+          break;}
+        case'speaking_start':{
+          speakingActive=true;
+          if(mood!=='speaking')setMood('speaking');
+          break;}
+        case'speaking_stop':{
+          speakingActive=false;speakingAmplitude=0;
+          // Return to idle unless another mood was requested mid-speech
+          if(mood==='speaking')setMood('idle');
+          break;}
+        case'speaking_amplitude':{
+          speakingAmplitude=clamp(Number(cmd.value)||0,0,1);
+          break;}
+        case'event':{
+          switch(cmd.value){
+            case'shooting_star':{
+              // Force a shooting star immediately by setting shootTimer to now
+              shootTimer=Date.now();
+              break;}
+            case'satellite':forceRareEvent('satellite');break;
+            case'comet':forceRareEvent('comet');break;
+            case'supernova':forceRareEvent('supernova');break;
+            case'gamma_ray_burst':forceRareEvent('gamma_ray_burst');break;
+            case'bright_star':forceRareEvent('bright_star');break;
+            case'galaxy':forceRareEvent('galaxy');break;
+            case'cosmic_ray':forceRareEvent('cosmic_ray');break;
+            case'gravity_lens':forceRareEvent('gravity_lens');break;
+            case'nebula_pulse':forceRareEvent('nebula_pulse');break;
+            case'ufo':if(!ufoActive)triggerUFO();break;
+            case'kilonova':if(!srEv)triggerSuperRare('kilonova');break;
+            case'meteor_shower':if(!srEv)triggerSuperRare('meteor_shower');break;
+          }
+          break;}
+        case'flash':{
+          // One-off color pulse overlay on Navi
+          const col=cmd.color||[255,220,150];
+          const dur=cmd.duration||800;
+          shimmerLife=1.0;
+          naviPulse=Math.max(naviPulse,.6);
+          break;}
+        case'look_at_navi':{
+          // Return to home position
+          wTgt.x=0;wTgt.y=0;lSpd=.04;bTimer=Date.now()+3000;
+          break;}
+        case'state_query':{
+          sendState();break;}
+      }
+    }catch(e){console.warn('[naviControl] cmd failed:',e);}
+  }
+
+  function sendState(){
+    if(!connected||!ws)return;
+    try{
+      const navX=(wPos.x+W/2)/W,navY=(wPos.y+H*.44)/H;
+      const state={
+        type:'state',
+        mood,
+        position:[Math.round(navX*1000)/1000,Math.round(navY*1000)/1000],
+        behavior:beh,
+        personality:pState,
+        uptime_sec:Math.round((Date.now()-startTime)/1000),
+        ufo_active:ufoActive,
+        super_rare:srEv,
+        rare_event:rEv,
+      };
+      ws.send(JSON.stringify(state));
+    }catch(e){}
+  }
+
+  function connect(){
+    try{
+      ws=new WebSocket(WS_URL);
+    }catch(e){
+      setTimeout(connect,RECONNECT_MS);return;
+    }
+    ws.addEventListener('open',()=>{
+      connected=true;
+      console.log('[naviControl] Connected to',WS_URL);
+      sendState(); // send initial state
+      if(heartbeatTimer)clearInterval(heartbeatTimer);
+      heartbeatTimer=setInterval(sendState,HEARTBEAT_MS);
+    });
+    ws.addEventListener('message',ev=>{
+      try{
+        const msg=JSON.parse(ev.data);
+        if(Array.isArray(msg)){msg.forEach(handleCommand);}
+        else{handleCommand(msg);}
+      }catch(e){console.warn('[naviControl] bad message:',e);}
+    });
+    ws.addEventListener('close',()=>{
+      connected=false;
+      if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;}
+      setTimeout(connect,RECONNECT_MS);
+    });
+    ws.addEventListener('error',()=>{
+      // onclose will fire and handle reconnect
+    });
+  }
+
+  // Expose for debugging / manual testing from console
+  return {
+    connect,
+    send:(cmd)=>handleCommand(cmd), // direct test-injection
+    isConnected:()=>connected,
+    getSpeakingAmplitude:()=>speakingActive?speakingAmplitude:0,
+    isSpeaking:()=>speakingActive,
+    NAMED_POIS,
+  };
+})();
+// Expose on window for Python/console debugging
+window.naviControl=naviControl;
+// Attempt connection; silent no-op if server not running
+naviControl.connect();
+
+resize();window.addEventListener('resize',resize);setTimeout(()=>setMood('idle'),1500);pickB();frame();
+})();
+</script>
+</body>
+</html>

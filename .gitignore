@@ -1,0 +1,9 @@
+.env
+*.env
+navi_memory.db
+navi.log
+.last_boot
+__pycache__/
+*.pyc
+*.wav
+voice/*.onnx
