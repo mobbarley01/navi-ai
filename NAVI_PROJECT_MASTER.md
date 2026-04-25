@@ -1174,4 +1174,38 @@ Do not re-enable brain autostart until the audio/systemd issue is debugged.
 
 ---
 
+## 21. Session 2026-04-25 — Level 2 Embodiment Shipped
+
+Latest GitHub commit: `44fcc0b` Add embodied face control and joy mood
+
+State changes:
+
+- Level 2 embodiment is working.
+- Navi drives her own face via Claude tool-use through `control_face` in `navi.py`.
+- `control_face` only calls the existing `face(cmd)` function — no shell, files, db, or services.
+- Face tools enabled ONLY for conversation-style `call_claude` calls (main convo, weather, news, search).
+  Disabled for classifier, fact extraction, greeting, farewell, briefing — keeps low-token utility calls clean and prevents startup failure.
+- Happy mood in `navi_face_1.html` changed from yellow/ONLINE to rose-pink/JOY (`r:255,g:130,b:180`, label `'JOY'`). Spark burst color updated to match.
+- After `speak()`, `navi.py` re-applies the last emotional mood Navi chose this turn so happy/alert/angry persist visibly past speech (instead of being wiped by `speaking_stop` → idle).
+
+Tested and verified:
+
+- Celebration prompt → mood=happy + behavior=shimmer/orbit, JOY label visible.
+- Danger prompt → mood=alert + behavior=stillness + personality=watchful.
+- Neutral factual prompt (Portugal capital) → no face tool call. Correct.
+- Face animation remains smooth and stable.
+- Voice mode still works.
+- Memory, weather, news, wiki, search still work.
+- Startup greeting works (no more "Something went wrong").
+
+GitHub push workflow reminder:
+
+If `git push` asks for username/password (token deprecation):
+
+    gh auth status
+    gh auth setup-git
+    git push
+
+---
+
 End of NAVI_PROJECT_MASTER.md.
