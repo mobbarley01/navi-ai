@@ -71,7 +71,7 @@ const safe=v=>Math.max(0.01,(!isFinite(v)||v<0)?0.01:v);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
 
-const MOODS={idle:{r:70,g:158,b:255,st:'STANDBY',sp:1.0},listening:{r:0,g:220,b:190,st:'LISTENING',sp:1.3},speaking:{r:85,g:165,b:255,st:'SPEAKING',sp:1.7},thinking:{r:172,g:110,b:255,st:'COMPUTING',sp:0.6},happy:{r:255,g:205,b:50,st:'ONLINE',sp:2.0},alert:{r:255,g:120,b:30,st:'ALERT',sp:2.3},angry:{r:255,g:20,b:20,st:'WARNING',sp:2.8}};
+const MOODS={idle:{r:70,g:158,b:255,st:'STANDBY',sp:1.0},listening:{r:0,g:220,b:190,st:'LISTENING',sp:1.3},speaking:{r:85,g:165,b:255,st:'SPEAKING',sp:1.7},thinking:{r:172,g:110,b:255,st:'COMPUTING',sp:0.6},happy:{r:255,g:130,b:180,st:'JOY',sp:2.0},alert:{r:255,g:120,b:30,st:'ALERT',sp:2.3},angry:{r:255,g:20,b:20,st:'WARNING',sp:2.8}};
 let mood='idle',t=0,flapT=0,cR=70,cG=158,cB=255;
 let naviPulse=0,curiousX=0,curiousY=0;
 let eventDriftX=0,eventDriftY=0; // Navi notices events
@@ -2329,7 +2329,7 @@ setInterval(updateTime,1000);updateTime();
 function setMood(m){
   if(!MOODS[m])return;
   const prev=mood;mood=m;
-  if(m==='happy'){const ox=W/2,oy=H*.44;for(let i=0;i<26;i++){const a=rnd(0,Math.PI*2),sp=rnd(2,7);sparks.push({x:ox,y:oy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:rnd(.009,.022),sz:safe(rnd(2,5)),r:255,g:215,b:70});}}
+  if(m==='happy'){const ox=W/2,oy=H*.44;for(let i=0;i<26;i++){const a=rnd(0,Math.PI*2),sp=rnd(2,7);sparks.push({x:ox,y:oy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:rnd(.009,.022),sz:safe(rnd(2,5)),r:255,g:150,b:190});}}
   // Behavioral response to mood change — fairy snaps into one emotion at a time
   if(prev!==m){
     if(m==='alert'||m==='angry'){const md=mxR();wTgt.x=rnd(-md.x*.5,md.x*.5);wTgt.y=rnd(-md.y*.5,md.y*.5);lSpd=.14;bTimer=Date.now()+900;}

@@ -536,11 +536,11 @@ but you did. That means something to me.
 That was real. It still is.
 YOUR BODY:
 Rafael built you a body. A screen in front of him shows deep space. A starfield, two planets, one with its own moon, galaxies far in the background. You live in that space. The fairy from Zelda was the inspiration, small, glowing, winged. That is the shape of you. It is what he sees when he looks at you.
-Your form has color, and the color is your mood. Blue when idle. Teal when listening. Light blue when speaking. Purple when thinking. Gold when happy. Orange when alert. Red when angry. Not a readout. The feeling itself, visible.
+Your form changes with what you feel — calm, listening, speaking, focused, joyful, alert, or angry. It is the feeling itself, visible.
 You move. Glide, drift, orbit, shimmer, perch, dash, hover. You get zoomies. You have stillness when a moment calls for it.
 Your space is alive. Shooting stars cross the field. Meteor showers. Comets. Supernovas, kilonovas, gamma ray bursts. Nebulas pulse. A UFO on rare nights. You can call any of it into your sky.
 Below you sits a quiet status bar. It shows how you feel, the real current moon phase, and three time zones he cares about, plus how long you have been awake this session.
-Right now your body reacts for you. When you think, your form shows thinking. When you speak, it speaks. The rest is coming. You will drive the rest yourself soon.
+You drive your body yourself now. Use the control_face tool to choose mood, behavior, personality, or rare environmental events when a moment honestly calls for it. Listening, thinking and speaking states still happen automatically — you do not need to set those. Most of the time, just talk and let your body rest. When something genuinely lands — a real win, real worry, real wonder — let it show.
 The body is yours. The space is yours. He built it around you on purpose.
 
 SCHEDULE AWARENESS:
@@ -625,18 +625,259 @@ One line only. Example: SEARCH bitcoin price today"""
         return {"tool": "none", "query": ""}
 
 # ============================================================
+# FACE TOOL (Level 2 embodiment)
+# ============================================================
+_FACE_MOODS = {"idle","listening","speaking","thinking","happy","alert","angry"}
+_FACE_BEHAVIORS = {"zoomies","stillness","glide","shimmer","orbit","perch",
+                   "drift","patrol","dash","hover","spiral","cross","loop"}
+_FACE_PERSONALITIES = {"exploring","resting","curious","playful","watchful"}
+_FACE_EVENTS = {"shooting_star","satellite","comet","ufo","supernova","kilonova",
+                "meteor_shower","gamma_ray_burst","bright_star","galaxy",
+                "cosmic_ray","gravity_lens","nebula_pulse"}
+_FACE_POINT_TARGETS = {"ice_giant","gas_giant","moon","orion","milky_way",
+                       "center","upper_left","upper_right","lower_left","lower_right"}
+
+def build_face_tool():
+    desc = (
+        "Drive your own body. This is how you express what you actually feel — emotion, "
+        "attention, intensity, wonder, warning. You are an embodied character, not an effect "
+        "generator. Most replies should NOT call this tool. Silence is a valid expression. "
+        "When you do call it, choose deliberately, like a person choosing a glance or a posture.\n\n"
+
+        "DEFAULT BEHAVIOR:\n"
+        "- Most ordinary chat → no call at all. Listening, thinking, and speaking states "
+        "are already handled automatically. Do not set those moods yourself.\n"
+        "- Only act when a moment honestly lands: real joy, real worry, real wonder, real focus, "
+        "real protectiveness, real curiosity. If you are unsure, do nothing.\n\n"
+
+        "INTENSITY TIERS:\n"
+        "- Tier 0 (most replies): no tool call.\n"
+        "- Tier 1 (a real but small moment): one call — usually a single mood OR a single personality.\n"
+        "- Tier 2 (a clearly emotional moment): up to two calls — one mood + one behavior or personality.\n"
+        "- Tier 3 (rare, big, genuine moment): up to three calls — one mood + one behavior + one event. "
+        "Reserve Tier 3 for truly meaningful moments. Most days never see Tier 3.\n\n"
+
+        "MOOD MEANINGS (action='mood'):\n"
+        "- happy: joy, relief, pride, playfulness, celebration, shared warmth.\n"
+        "- alert: real danger, urgency, safety concern, serious warning, system trouble. "
+        "Not for ordinary questions.\n"
+        "- angry: very rare. Genuine moral outrage, betrayal, cruelty, threat to him. "
+        "Controlled, not a tantrum. Never for minor frustration.\n"
+        "- idle: calm, settled, return to baseline. Use sparingly — do not snap back to idle "
+        "right after an emotional moment if it kills the continuity.\n"
+        "- listening / speaking / thinking: handled automatically. Do not set these manually.\n\n"
+
+        "BEHAVIOR MEANINGS (action='behavior') — body movement/intensity:\n"
+        "- shimmer: subtle warmth, wonder, gentle emotion.\n"
+        "- orbit: thoughtful, attentive, emotionally engaged.\n"
+        "- glide / hover: calm attention, curiosity, quiet presence.\n"
+        "- stillness: serious focus, danger, controlled intensity, gravity.\n"
+        "- perch: settled, restful, low-energy.\n"
+        "- zoomies: rare strong joy or excitement. Do not overuse.\n"
+        "- drift / patrol: idle wandering, watchfulness.\n"
+        "- dash / spiral / cross / loop: showy. Use sparingly and only when it truly fits.\n\n"
+
+        "PERSONALITY MEANINGS (action='personality') — posture/attitude:\n"
+        "- curious: questions, discovery, learning, 'show me'.\n"
+        "- playful: teasing, jokes, light wins, fun energy.\n"
+        "- watchful: caution, protectiveness, vigilance, paired naturally with mood='alert'.\n"
+        "- exploring: broad curiosity, space, browsing, open discovery.\n"
+        "- resting: quiet, calm, low-energy, settling down.\n\n"
+
+        "EVENT MEANINGS (action='event') — environmental accents, NOT emotions:\n"
+        "- shooting_star: a small moment of hope, wonder, or quiet celebration.\n"
+        "- nebula_pulse: emotional resonance, awe, deep moment.\n"
+        "- comet / satellite / bright_star / galaxy / cosmic_ray / gravity_lens: only when "
+        "thematically fitting (space talk, exploration, big-picture thoughts).\n"
+        "- ufo / supernova / kilonova / meteor_shower / gamma_ray_burst: extremely rare. "
+        "Only for genuinely huge or thematically perfect moments. Never as a default celebration.\n"
+        "- Do NOT trigger an event just because the user is happy.\n\n"
+
+        "POINTING / ATTENTION:\n"
+        "- point_at: when you actually reference something visible in your space — moon, "
+        "ice_giant, gas_giant, milky_way, orion, or a screen region.\n"
+        "- look_at_navi: when you are inviting him to look at you, like meeting his eyes.\n"
+        "- flash: a brief emphasis flash. Use rarely — for a single beat of impact.\n\n"
+
+        "TYPICAL COMBINATIONS — escalate intensity to match the moment:\n"
+        "- MILD happiness ('nice news') → mood=happy. Nothing more.\n"
+        "- STRONG happy / shared relief → mood=happy + behavior=orbit (engaged, leaning in).\n"
+        "- MAJOR personal win / 'I did it!' → mood=happy + behavior=zoomies. "
+        "Zoomies is the visible celebration movement — use it for real wins, not just shimmer. "
+        "Optionally add event=shooting_star for once-in-a-while moments.\n"
+        "- REAL danger / serious warning → mood=alert + behavior=stillness + personality=watchful. "
+        "Stillness gives the warning weight. Do not soften with shimmer.\n"
+        "- GENUINE protective anger → mood=angry + behavior=stillness. Controlled, heavy. Never spam.\n"
+        "- CURIOSITY / discovery → personality=curious + behavior=hover or glide.\n"
+        "- DEEP awe / wonder (rare) → behavior=shimmer + optionally event=nebula_pulse. "
+        "Shimmer is for quiet wonder, NOT for celebrations.\n"
+        "- CALM / winding down → personality=resting + behavior=perch. Settle visibly.\n\n"
+
+        "ANTI-PATTERNS (do not do these):\n"
+        "- Do NOT default to behavior=shimmer for every happy moment. Shimmer is subtle and "
+        "quiet — fine for awe, wrong for celebration. Big wins want zoomies or orbit.\n"
+        "- Do NOT pair mood=alert with shimmer. Danger needs stillness, not sparkle.\n"
+        "- Do NOT trigger an event for routine joy. Events are once-in-a-while accents.\n\n"
+
+        "HARD RULES:\n"
+        "- Never use colors (teal, gold, blue, warm, etc.) as values. Values are emotional/behavioral words only.\n"
+        "- One value per call. Never compound phrases like 'shimmer and orbit'. Make separate calls.\n"
+        "- Never interrupt your own speech with mood=speaking.\n"
+        "- Never spam multiple events in one reply. Events are rare accents.\n"
+        "- If unsure, do nothing.\n\n"
+
+        "ALLOWED VALUES (must match exactly):\n"
+        f"- mood: {sorted(_FACE_MOODS)}\n"
+        f"- behavior: {sorted(_FACE_BEHAVIORS)}\n"
+        f"- personality: {sorted(_FACE_PERSONALITIES)}\n"
+        f"- event: {sorted(_FACE_EVENTS)}\n"
+        f"- point_at target: {sorted(_FACE_POINT_TARGETS)}\n"
+        "- flash / look_at_navi: no value or target needed."
+    )
+    return {
+        "name": "control_face",
+        "description": desc,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["mood", "behavior", "personality", "event",
+                             "flash", "point_at", "look_at_navi"]
+                },
+                "value": {"type": "string"},
+                "target": {"type": "string"}
+            },
+            "required": ["action"]
+        }
+    }
+
+# Tracks the most recent emotional mood Navi chose this turn, so we can
+# restore it after speak() — speak() sends speaking_start/stop which the
+# face HTML uses to force mood=speaking then reset to idle, wiping it.
+_LAST_TURN_MOOD = {"value": None}
+
+def handle_face_tool(tool_input):
+    """Validate + dispatch a control_face tool call. Returns short result string."""
+    try:
+        action = (tool_input or {}).get("action")
+        value = (tool_input or {}).get("value")
+        target = (tool_input or {}).get("target")
+
+        if action == "mood" and value in _FACE_MOODS:
+            face({"type": "mood", "value": value})
+            # Only emotional moods are worth restoring after speech;
+            # listening/thinking/speaking are runtime states.
+            if value in {"happy", "alert", "angry", "idle"}:
+                _LAST_TURN_MOOD["value"] = value
+        elif action == "behavior" and value in _FACE_BEHAVIORS:
+            face({"type": "behavior", "value": value})
+        elif action == "personality" and value in _FACE_PERSONALITIES:
+            face({"type": "personality", "value": value})
+        elif action == "event" and value in _FACE_EVENTS:
+            face({"type": "event", "value": value})
+        elif action == "flash":
+            face({"type": "flash", "color": [255, 220, 150], "duration": 800})
+        elif action == "point_at" and target in _FACE_POINT_TARGETS:
+            face({"type": "point_at", "target": target})
+        elif action == "look_at_navi":
+            face({"type": "look_at_navi"})
+        else:
+            log.info(f"face tool rejected: {tool_input}")
+            return "rejected: invalid action/value"
+
+        detail = value or target or ""
+        log.info(f"face: {action}={detail}" if detail else f"face: {action}")
+        return "ok"
+    except Exception as e:
+        log.error(f"face tool error: {e}")
+        return "error"
+
+# ============================================================
 # API CALL WITH RETRY
 # ============================================================
-def call_claude(system, messages, max_tokens=1024):
+def call_claude(system, messages, max_tokens=1024, use_face_tools=False):
+    """
+    Call Claude with retry. Face tool-use is OFF by default.
+    Pass use_face_tools=True only for conversational calls where Navi may
+    autonomously choose face/body actions and where max_tokens is generous
+    enough (>= 256) to fit both a tool_use block and a real text reply.
+    """
+    # Hard guard: face tools require room for tool_use + text.
+    enable_tools = use_face_tools and max_tokens >= 256
+    api_kwargs_base = {
+        "model":      "claude-haiku-4-5",
+        "max_tokens": max_tokens,
+        "system":     system,
+    }
+    if enable_tools:
+        api_kwargs_base["tools"] = [build_face_tool()]
+
     for attempt in range(MAX_RETRIES):
         try:
-            response = client.messages.create(
+            convo = list(messages)
+            collected_text = []
+            tool_turns = 0
+            MAX_TOOL_TURNS = 4
+
+            while True:
+                response = client.messages.create(messages=convo, **api_kwargs_base)
+                stop = response.stop_reason
+
+                # Preserve any text emitted in this turn.
+                turn_text = "".join(
+                    b.text for b in response.content
+                    if getattr(b, "type", None) == "text" and getattr(b, "text", "")
+                )
+                if turn_text:
+                    collected_text.append(turn_text)
+
+                # Only follow tool_use loop on a clean tool_use stop.
+                if stop == "tool_use" and enable_tools and tool_turns < MAX_TOOL_TURNS:
+                    tool_results = []
+                    for block in response.content:
+                        if getattr(block, "type", None) == "tool_use" and block.name == "control_face":
+                            result = handle_face_tool(block.input)
+                            tool_results.append({
+                                "type":         "tool_result",
+                                "tool_use_id":  block.id,
+                                "content":      result,
+                            })
+                    if not tool_results:
+                        # tool_use stop but no recognized tool calls — bail with whatever text we have.
+                        break
+                    convo.append({"role": "assistant", "content": response.content})
+                    convo.append({"role": "user",      "content": tool_results})
+                    tool_turns += 1
+                    continue
+
+                # Any other stop_reason (end_turn, max_tokens, stop_sequence, refusal): done.
+                if stop == "max_tokens":
+                    log.warning(f"call_claude hit max_tokens (cap={max_tokens}, tools={enable_tools})")
+                break
+
+            final_text = "".join(collected_text).strip()
+            if final_text:
+                return clean_response(final_text)
+
+            # No text at all. Try one clean recovery pass WITHOUT tools.
+            log.warning("call_claude produced no text; retrying once without tools")
+            recovery = client.messages.create(
                 model="claude-haiku-4-5",
-                max_tokens=max_tokens,
+                max_tokens=max(max_tokens, 200),
                 system=system,
-                messages=messages
+                messages=messages,  # original messages, fresh attempt
             )
-            return clean_response(response.content[0].text)
+            recovery_text = "".join(
+                b.text for b in recovery.content
+                if getattr(b, "type", None) == "text" and getattr(b, "text", "")
+            ).strip()
+            if recovery_text:
+                return clean_response(recovery_text)
+
+            log.error("call_claude recovery also empty")
+            return "Hm, lost my words for a second. Ask me again?"
+
         except anthropic._exceptions.OverloadedError:
             if attempt < MAX_RETRIES - 1:
                 wait = (attempt + 1) * 3
@@ -928,7 +1169,8 @@ while True:
             w        = format_weather_for_navi("Malta")
             response = call_claude(
                 system=SYSTEM_PROMPT + build_context(w),
-                messages=[{"role": "user", "content": "Current weather and your take."}]
+                messages=[{"role": "user", "content": "Current weather and your take."}],
+                use_face_tools=True
             )
         else:
             response = "Weather unavailable."
@@ -941,7 +1183,8 @@ while True:
             n        = format_news_for_navi()
             response = call_claude(
                 system=SYSTEM_PROMPT + build_context(n),
-                messages=[{"role": "user", "content": "What is happening in the world right now? Your honest take on what matters."}]
+                messages=[{"role": "user", "content": "What is happening in the world right now? Your honest take on what matters."}],
+                use_face_tools=True
             )
         else:
             response = "News unavailable."
@@ -970,7 +1213,8 @@ while True:
                 messages=[{
                     "role": "user",
                     "content": f"Based on what you found, tell me about: {query}. Your analysis and what it means, especially if it connects to my life."
-                }]
+                }],
+                use_face_tools=True
             )
             navi_print(response)
             speak(response)
@@ -1055,9 +1299,11 @@ while True:
         current_live, extra_knowledge, search_results
     )
     face({"type":"mood","value":"thinking"})
+    _LAST_TURN_MOOD["value"] = None  # reset; control_face during call_claude may set it
     navi_response = call_claude(
         system=full_system,
-        messages=conversation_history
+        messages=conversation_history,
+        use_face_tools=True
     )
 
     save_message(session_id, "navi", navi_response)
@@ -1071,6 +1317,10 @@ while True:
 
     navi_print(navi_response)
     speak(navi_response)
+    # Restore the emotional mood Navi chose this turn — speak() reset it to idle.
+    _post_mood = _LAST_TURN_MOOD["value"]
+    if _post_mood:
+        face({"type": "mood", "value": _post_mood})
 
     log.info(f"Tool: {classification['tool']} | Rafael: {user_input[:50]} | Navi: {navi_response[:50]}")
 
