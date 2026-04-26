@@ -70,7 +70,8 @@ try:
         format_wikipedia_for_navi,
         format_search_for_navi,
         format_advanced_search_for_navi,
-        is_weather_severe
+        is_weather_severe,
+        get_weather
     )
     TOOLS_AVAILABLE = True
 except Exception as e:
@@ -1044,6 +1045,59 @@ weather_cache = {"data": "", "time": 0}
 news_cache    = {"data": "", "time": 0}
 CACHE_TTL     = 600
 
+NAVI_LOCATION       = os.getenv("NAVI_LOCATION", "Malta")
+NAVI_LOCATION_LABEL = os.getenv("NAVI_LOCATION_LABEL", "MAL").upper()[:4]
+
+def _condition_key(condition, hour=None):
+    """Map a wttr.in condition string to a stable condition_key for the face."""
+    c = (condition or "").lower()
+    if hour is None:
+        hour = datetime.now().hour
+    night = hour >= 20 or hour < 6
+    if any(k in c for k in ("thunder", "lightning")):         return "storm"
+    if any(k in c for k in ("snow", "sleet", "blizzard")):    return "snow"
+    if any(k in c for k in ("rain", "drizzle", "shower")):    return "rain"
+    if any(k in c for k in ("mist", "fog", "haze", "smoke")): return "fog"
+    if "overcast" in c:                                       return "cloudy"
+    if "partly" in c and "cloud" in c:                        return "partly_cloudy"
+    if "cloud" in c:                                          return "cloudy"
+    if any(k in c for k in ("clear", "sunny", "fair")):
+        return "clear_night" if night else "clear_day"
+    return "unknown"
+
+def push_weather_to_face():
+    """Fire-and-forget: send current weather snapshot to face via WebSocket."""
+    if not TOOLS_AVAILABLE:
+        return
+    try:
+        data = get_weather(NAVI_LOCATION)
+        if not data or "weather" not in data:
+            log.warning("weather face push skipped: no data")
+            return
+        w     = data["weather"]
+        try:
+            temp_c = int(round(float(w.get("temp", "0"))))
+        except (TypeError, ValueError):
+            log.warning(f"weather face push skipped: bad temp {w.get('temp')!r}")
+            return
+        key = _condition_key(w.get("condition", ""))
+        face({
+            "type":          "weather",
+            "condition_key": key,
+            "temp_c":        temp_c,
+            "label":         NAVI_LOCATION_LABEL,
+        })
+        log.info(f"weather face push: key={key} temp={temp_c} label={NAVI_LOCATION_LABEL} cond={w.get('condition','')!r}")
+    except Exception as e:
+        log.error(f"push_weather_to_face failed: {e}")
+
+def schedule_initial_weather_push(delay=6):
+    """Push once after the face WebSocket has had time to connect."""
+    def _go():
+        time.sleep(delay)
+        push_weather_to_face()
+    threading.Thread(target=_go, daemon=True).start()
+
 def load_live_data():
     live       = ""
     weather_ok = False
@@ -1056,9 +1110,10 @@ def load_live_data():
 
     try:
         if now - weather_cache["time"] > CACHE_TTL or not weather_cache["data"]:
-            w = format_weather_for_navi("Malta")
+            w = format_weather_for_navi(NAVI_LOCATION)
             weather_cache["data"] = w
             weather_cache["time"] = now
+        push_weather_to_face()
         live      += f"\n--- LIVE WEATHER ---{weather_cache['data']}"
         weather_ok = True
     except Exception as e:
@@ -1102,8 +1157,10 @@ print("="*50)
 system_print("Loading live data")
 live_data, weather_ok, news_ok = load_live_data()
 system_print(f"Weather: {'OK' if weather_ok else 'FAIL'} | News: {'OK' if news_ok else 'FAIL'} | Search: {'OK' if TOOLS_AVAILABLE else 'FAIL'} | Wikipedia: {'OK' if TOOLS_AVAILABLE else 'FAIL'}")
+if weather_ok:
+    schedule_initial_weather_push(6)
 
-weather_severe = is_weather_severe("Malta") if TOOLS_AVAILABLE else False
+weather_severe = is_weather_severe(NAVI_LOCATION) if TOOLS_AVAILABLE else False
 context        = build_context(live_data)
 
 if boot_state == 'restart':

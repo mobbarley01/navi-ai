@@ -19,15 +19,24 @@ canvas{display:block;position:fixed;top:0;left:0;}
 @keyframes moonbreath{0%,100%{filter:drop-shadow(0 0 8px rgba(180,220,255,0.55)) drop-shadow(0 0 16px rgba(140,195,255,0.3));}50%{filter:drop-shadow(0 0 14px rgba(200,230,255,0.85)) drop-shadow(0 0 26px rgba(160,210,255,0.5));}}
 .mname{background:linear-gradient(90deg,rgba(220,232,255,0.98) 0%,rgba(180,210,255,0.92) 50%,rgba(230,240,255,0.98) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;font-size:13px;letter-spacing:0.18em;font-weight:700;animation:mshimmer 6s linear infinite;text-shadow:0 0 12px rgba(140,195,255,0.3);}
 @keyframes mshimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
-#clocks{flex:0 0 auto;display:flex;align-items:center;gap:14px;}
+#clocks{flex:0 0 auto;display:flex;align-items:center;gap:11px;}
 .cg{display:flex;align-items:baseline;gap:6px;}
 .cl{color:rgba(255,190,100,0.95);font-size:11px;letter-spacing:0.10em;font-weight:700;}
 .cs{display:none;}
+.dv{width:1px;height:14px;background:linear-gradient(to bottom,rgba(180,210,255,0) 0%,rgba(180,210,255,0.22) 50%,rgba(180,210,255,0) 100%);align-self:center;flex:0 0 auto;}
 #upt,#taru,#tbtm{color:rgba(240,248,255,1.0);font-size:15px;letter-spacing:0.04em;font-weight:700;text-shadow:0 0 10px rgba(150,200,255,0.35);font-variant-numeric:tabular-nums;}
 #tm{display:flex;align-items:baseline;gap:6px;letter-spacing:0;}
 #tday{color:rgba(255,190,100,0.95);font-size:11px;letter-spacing:0.10em;font-weight:700;}
 #tmhm{color:rgba(240,248,255,1.0);font-size:15px;letter-spacing:0.04em;font-weight:700;text-shadow:0 0 10px rgba(150,200,255,0.35);font-variant-numeric:tabular-nums;}
 #tmsec{color:rgba(240,248,255,0.92);font-size:11px;letter-spacing:0.04em;font-weight:700;margin-left:1px;font-variant-numeric:tabular-nums;}
+/* weather slot */
+#wx{align-items:center;gap:6px;}
+#wxicon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:0;filter:drop-shadow(0 0 4px rgba(150,200,255,0.30));align-self:center;flex:0 0 auto;}
+#wxicon svg{display:block;width:100%;height:100%;}
+#wxtemp{color:rgba(240,248,255,1);font-size:15px;letter-spacing:0.04em;font-weight:700;text-shadow:0 0 10px rgba(150,200,255,0.35);font-variant-numeric:tabular-nums;}
+/* premium SVG flag badges — guaranteed renderable, no emoji font dependency */
+.flag{display:inline-block;width:18px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.22);box-shadow:0 0 5px rgba(150,200,255,0.22),inset 0 -1px 0 rgba(0,0,0,0.32);overflow:hidden;align-self:center;flex:0 0 auto;line-height:0;background:#000;}
+.flag svg{display:block;width:100%;height:100%;}
 </style>
 </head>
 <body>
@@ -56,9 +65,17 @@ canvas{display:block;position:fixed;top:0;left:0;}
     <span class="mname" id="mname">NEW MOON</span>
   </div>
   <div id="clocks">
-    <span class="cg"><span class="cl">↑</span><span id="upt">00:00</span></span>
-    <span class="cg"><span class="cl">ARU</span><span id="taru">00:00</span></span>
-    <span class="cg"><span class="cl">BTM</span><span id="tbtm">00:00</span></span>
+    <span class="cg" id="wx">
+      <span id="wxicon"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="rgba(180,210,255,0.30)"/></svg></span>
+      <span id="wxtemp">--°</span>
+    </span>
+    <span class="dv"></span>
+    <span class="cg"><span class="cl">UP</span><span id="upt">00:00</span></span>
+    <span class="dv"></span>
+    <span class="cg"><span class="flag" title="Aruba"><svg viewBox="0 0 18 12" aria-hidden="true"><rect width="18" height="12" fill="#4FB7E3"/><rect x="0" y="8.4" width="18" height="0.9" fill="#FFD200"/><rect x="0" y="9.9" width="18" height="0.9" fill="#FFD200"/><polygon points="3.5,0.6 4.10,2.40 5.9,3 4.10,3.60 3.5,5.4 2.90,3.60 1.1,3 2.90,2.40" fill="#EF3340" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="miter"/></svg></span><span class="cl">ARU</span><span id="taru">00:00</span></span>
+    <span class="dv"></span>
+    <span class="cg"><span class="flag" title="Indonesia"><svg viewBox="0 0 18 12" aria-hidden="true"><rect width="18" height="6" fill="#E70011"/><rect y="6" width="18" height="6" fill="#ffffff"/></svg></span><span class="cl">BTM</span><span id="tbtm">00:00</span></span>
+    <span class="dv"></span>
     <span id="tm"><span id="tday">FRI</span><span id="tmhm">00:00</span><span id="tmsec">·00</span></span>
   </div>
 </div>
@@ -2302,7 +2319,9 @@ function updateTime(){
   const el=Date.now()-startTime,uh=Math.floor(el/3600000),um=Math.floor((el%3600000)/60000);
   document.getElementById('upt').textContent=uh.toString().padStart(2,'0')+':'+um.toString().padStart(2,'0');
   const mp=getMoonPhase();
-  document.getElementById('mname').textContent=mp.name;
+  const mnEl=document.getElementById('mname');
+  mnEl.textContent=mp.name;
+  mnEl.style.letterSpacing=mp.name.length>=12?'.14em':'.18em';
   // Draw the moon illumination shape based on real phase fraction (0=new, 0.5=full, 1=new)
   const p=mp.age/29.53059; // 0 to 1
   const R=10;
@@ -2503,6 +2522,21 @@ window.addEventListener('keydown',e=>{
 function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight-BAR;buildBg();}
 
 // ═════════════════════════════════════════════════════════════
+// ── WEATHER ICON SVG SET — premium inline icons ──────────────
+// ═════════════════════════════════════════════════════════════
+const WX_SVG={
+  clear_day:`<svg viewBox="0 0 16 16"><defs><radialGradient id="wsd" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="#FFE89A"/><stop offset="60%" stop-color="#FFC542"/><stop offset="100%" stop-color="#FF8A1E"/></radialGradient></defs><g stroke="#FFC742" stroke-width="1" stroke-linecap="round" opacity="0.85"><line x1="8" y1="1.2" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="14.8"/><line x1="1.2" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="14.8" y2="8"/><line x1="3.2" y1="3.2" x2="4.4" y2="4.4"/><line x1="11.6" y1="11.6" x2="12.8" y2="12.8"/><line x1="3.2" y1="12.8" x2="4.4" y2="11.6"/><line x1="11.6" y1="4.4" x2="12.8" y2="3.2"/></g><circle cx="8" cy="8" r="3.4" fill="url(#wsd)"/></svg>`,
+  clear_night:`<svg viewBox="0 0 16 16"><defs><radialGradient id="wmn" cx="35%" cy="35%" r="70%"><stop offset="0%" stop-color="#E8F0FF"/><stop offset="100%" stop-color="#7AA5DC"/></radialGradient></defs><path d="M 12 9.6 A 5.2 5.2 0 1 1 7 3.2 A 4 4 0 0 0 12 9.6 Z" fill="url(#wmn)"/></svg>`,
+  cloudy:`<svg viewBox="0 0 16 16"><defs><linearGradient id="wcl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D6E1F2"/><stop offset="100%" stop-color="#8FA3C2"/></linearGradient></defs><g fill="url(#wcl)"><ellipse cx="6" cy="9" rx="3.4" ry="2.6"/><ellipse cx="10" cy="8" rx="3.6" ry="3"/><rect x="4" y="9" width="8" height="3" rx="1.5"/></g></svg>`,
+  partly_cloudy:`<svg viewBox="0 0 16 16"><defs><radialGradient id="wpsd" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="#FFE89A"/><stop offset="100%" stop-color="#FFB42E"/></radialGradient><linearGradient id="wpcl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D6E1F2"/><stop offset="100%" stop-color="#8FA3C2"/></linearGradient></defs><circle cx="6" cy="6" r="3" fill="url(#wpsd)"/><g fill="url(#wpcl)"><ellipse cx="9" cy="11" rx="3.4" ry="2.4"/><ellipse cx="12" cy="10" rx="2.4" ry="2"/><rect x="7" y="11" width="7" height="2.6" rx="1.3"/></g></svg>`,
+  rain:`<svg viewBox="0 0 16 16"><defs><linearGradient id="wrcl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C8D5E8"/><stop offset="100%" stop-color="#7488A8"/></linearGradient></defs><g fill="url(#wrcl)"><ellipse cx="6" cy="6.5" rx="3.4" ry="2.6"/><ellipse cx="10" cy="5.5" rx="3.6" ry="3"/><rect x="4" y="6.5" width="8" height="3" rx="1.5"/></g><g stroke="#6FB0FF" stroke-width="1" stroke-linecap="round"><line x1="5.5" y1="11" x2="4.5" y2="13.5"/><line x1="8" y1="11" x2="7" y2="13.5"/><line x1="10.5" y1="11" x2="9.5" y2="13.5"/></g></svg>`,
+  storm:`<svg viewBox="0 0 16 16"><g fill="#7488A8"><ellipse cx="6" cy="6" rx="3.4" ry="2.6"/><ellipse cx="10" cy="5" rx="3.6" ry="3"/><rect x="4" y="6" width="8" height="3" rx="1.5"/></g><polygon points="8.5,9 6.2,13 8,13 7,15.5 10.2,11 8.4,11" fill="#FFD23F" stroke="#FFB300" stroke-width="0.4"/></svg>`,
+  snow:`<svg viewBox="0 0 16 16"><g fill="#C8D5E8"><ellipse cx="6" cy="6.5" rx="3.4" ry="2.6"/><ellipse cx="10" cy="5.5" rx="3.6" ry="3"/><rect x="4" y="6.5" width="8" height="3" rx="1.5"/></g><g fill="#E8F0FF"><circle cx="5.5" cy="12" r="0.7"/><circle cx="8" cy="13.2" r="0.7"/><circle cx="10.5" cy="12" r="0.7"/></g></svg>`,
+  fog:`<svg viewBox="0 0 16 16"><g stroke="#B7C8DE" stroke-width="1.4" stroke-linecap="round"><line x1="2.5" y1="5" x2="13.5" y2="5" opacity="0.85"/><line x1="3.5" y1="8" x2="12.5" y2="8" opacity="0.70"/><line x1="2.5" y1="11" x2="13.5" y2="11" opacity="0.55"/></g></svg>`,
+  unknown:`<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3" fill="rgba(180,210,255,0.30)"/></svg>`
+};
+
+// ═════════════════════════════════════════════════════════════
 // ── AI CONTROL BRIDGE — WebSocket interface for Navi AI ──────
 // ═════════════════════════════════════════════════════════════
 // Claude/Navi AI connects to ws://localhost:8765 and sends JSON
@@ -2539,6 +2573,18 @@ const naviControl = (function(){
       switch(cmd.type){
         case'mood':{
           if(VALID_MOODS.includes(cmd.value))setMood(cmd.value);
+          break;}
+        case'weather':{
+          const ic=document.getElementById('wxicon');
+          const tx=document.getElementById('wxtemp');
+          if(ic){
+            const key=(typeof cmd.condition_key==='string'&&WX_SVG[cmd.condition_key])?cmd.condition_key:'unknown';
+            ic.innerHTML=WX_SVG[key];
+          }
+          if(tx){
+            const t=parseFloat(cmd.temp_c);
+            tx.textContent=isFinite(t)?Math.round(t)+'°':'--°';
+          }
           break;}
         case'goto':{
           // Normalized coords (0-1) → screen offsets relative to Navi's home (W/2, H*.44)
