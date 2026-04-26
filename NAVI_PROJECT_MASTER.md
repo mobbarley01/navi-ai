@@ -1208,4 +1208,22 @@ If `git push` asks for username/password (token deprecation):
 
 ---
 
+## 22. Session 2026-04-26 — Memory Cleanup
+
+Cleaned Navi facts database from 79 facts to 32 facts.
+
+Removed duplicate, cut-off, stale probation/May-4, and transient sleep-deprivation facts.
+
+Rewrote fact id 29 to:
+
+    Rafael plans to relocate to Indonesia — specifically Batam area — to be with his girlfriend Stefani.
+
+Backup kept on Pi:
+
+    /home/pi/navi/navi_memory.db.backup_before_fact_cleanup_2026-04-26
+
+Git status after cleanup showed no tracked DB changes. Dump/backup files (`facts_dump.tsv`, `facts_dump_after.tsv`, `navi_memory.db.backup_*`) are local untracked files and should not be committed.
+
+---
+
 End of NAVI_PROJECT_MASTER.md.
