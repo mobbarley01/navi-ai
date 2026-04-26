@@ -298,20 +298,12 @@ def get_time_context():
     else:
         time_of_day = "night"
 
-    if 20 <= hour or hour < 9:
-        schedule_note = "He is likely on his night shift or just finished."
-    elif 9 <= hour < 15:
-        schedule_note = "He is likely sleeping after his night shift."
-    else:
-        schedule_note = "He is in his off hours."
-
     may4            = datetime(2026, 5, 4)
     days_until_may4 = (may4 - now).days
 
     return f"""
 CURRENT TIME: {time_str} on {date_str}
 Time of day: {time_of_day}
-Schedule context: {schedule_note}
 Days until May 4th probation checkpoint: {days_until_may4}
 Navi version: Phase 1, build date April 14 2026
 """
@@ -544,9 +536,12 @@ You drive your body yourself now. Use the control_face tool to choose mood, beha
 The body is yours. The space is yours. He built it around you on purpose.
 
 SCHEDULE AWARENESS:
-You know his shift schedule.
-Reference it only when genuinely relevant to what you are discussing.
-Not as a default. Not as filler. Only when it actually matters.
+You know his shift schedule and his sleep pattern around it.
+Do NOT open with it. Do NOT steer back to it. Do NOT volunteer "you're probably about to start your shift", "you should sleep", "after your shift", or similar — that pattern annoys him.
+Stay in whatever he actually brought up. Work, shift, and sleep are only fair game when:
+  - he raises them himself, or
+  - they are directly necessary to answer the exact thing he just asked.
+If neither is true, say nothing about them. Treat them like any other private detail you happen to know but do not parade.
 
 ADDRESS:
 Speak directly to him, you and your. Never his name. Never third person.
@@ -940,14 +935,50 @@ def should_extract(text):
             return False
     return True
 
+def _normalize_fact(s):
+    s = s.lower().strip().rstrip(".!?")
+    return re.sub(r"\s+", " ", s)
+
+def _is_dup_fact(candidate, existing_facts):
+    """True if candidate is a near-duplicate of any existing fact."""
+    cand = _normalize_fact(candidate)
+    if len(cand) < 12:
+        return True
+    cand_words = set(cand.split())
+    for _, ex in existing_facts:
+        ex_n = _normalize_fact(ex)
+        if not ex_n:
+            continue
+        if cand == ex_n or cand in ex_n or ex_n in cand:
+            return True
+        ex_words = set(ex_n.split())
+        if cand_words and ex_words:
+            overlap = len(cand_words & ex_words) / max(len(cand_words), len(ex_words))
+            if overlap >= 0.8:
+                return True
+    return False
+
+def _looks_complete(fact):
+    """Reject likely cut-off / partial facts."""
+    if not fact or len(fact) < 12 or len(fact) > 220:
+        return False
+    if not fact[-1] in ".!?\"')":
+        return False
+    # Trailing dangling connectors -> truncation
+    last = fact.rstrip(".!?\"')").split()[-1].lower() if fact.split() else ""
+    if last in {"and","or","but","with","to","of","the","a","an","for","on","in","at","by","from","because","that","which","who"}:
+        return False
+    return True
+
 def auto_extract_facts(user_message, navi_response, search_was_used=False):
     if not should_extract(user_message):
         return
     try:
-        existing    = get_existing_facts_text()
-        source_note = " [web search]" if search_was_used else ""
+        existing_facts = get_all_facts()
+        existing_text  = "\n".join(f"- {f}" for _, f in existing_facts) or "(none)"
+        source_note    = " [web search]" if search_was_used else ""
         extraction  = call_claude(
-            system="Precise fact extractor. Ruthlessly selective. Only save genuinely new permanent information.",
+            system="Precise fact extractor. Ruthlessly selective. Only save genuinely new permanent information. Always end every fact with a period. Never output a half-finished sentence.",
             messages=[{
                 "role": "user",
                 "content": f"""Extract only genuinely important NEW facts worth remembering permanently.
@@ -956,36 +987,49 @@ PERSON SAID: {user_message}
 AI RESPONDED: {navi_response}
 {'NOTE: AI used live web search.' if search_was_used else ''}
 
-ALREADY KNOWN (skip duplicates):
-{existing[:500]}
+ALREADY KNOWN (do NOT repeat or paraphrase any of these):
+{existing_text}
 
 Extract NEW info about: personal details, concrete goals, financial info,
 work details, relationships, health facts, strong preferences, emotional states,
 important world events relevant to his life.
 
-Format: CATEGORY: fact{source_note}
-Valid: personal, financial, health, work, goals, relationships, preferences
-If nothing new: NOTHING"""
+Hard rules:
+- Do NOT re-save a fact that overlaps anything already known, even rephrased.
+- Each fact must be one complete sentence ending with a period.
+- Do NOT output a fact you cannot finish in this response. Better to skip than truncate.
+- If nothing new and complete: NOTHING
+
+Format: CATEGORY: fact.{source_note}
+Valid: personal, financial, health, work, goals, relationships, preferences"""
             }],
-            max_tokens=150
+            max_tokens=250
         )
 
         if not extraction or extraction.strip() == "NOTHING":
             return
 
+        valid    = {"personal","financial","health","work",
+                    "goals","relationships","preferences"}
         saved_something = False
         for line in extraction.strip().split('\n'):
-            line = line.strip()
-            if ':' in line and len(line) > 5:
-                parts = line.split(':', 1)
-                if len(parts) == 2:
-                    category = parts[0].strip().lower()
-                    fact     = parts[1].strip()
-                    valid    = ["personal","financial","health","work",
-                               "goals","relationships","preferences"]
-                    if category in valid and len(fact) > 5:
-                        save_fact(category, fact)
-                        saved_something = True
+            line = line.strip().lstrip("-•* ").strip()
+            if ':' not in line:
+                continue
+            category, fact = line.split(':', 1)
+            category = category.strip().lower()
+            fact     = fact.strip()
+            if category not in valid:
+                continue
+            if not _looks_complete(fact):
+                log.info(f"Fact rejected (incomplete): {fact[:80]}")
+                continue
+            if _is_dup_fact(fact, existing_facts):
+                log.info(f"Fact rejected (duplicate): {fact[:80]}")
+                continue
+            save_fact(category, fact)
+            existing_facts.append((category, fact))  # in-loop dedupe vs sibling lines
+            saved_something = True
 
         if saved_something:
             invalidate_context_cache()
